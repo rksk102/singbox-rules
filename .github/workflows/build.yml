@@ -49,4 +49,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto: Sync rules & Compile with latest kernel [skip ci]"
-          file_pattern: "rules-txt/* rules-json/* rules-srs/*"
+          file_pattern: "rules-txt rules-json rules-srs"
