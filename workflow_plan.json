@@ -4,7 +4,7 @@
     "filename": "build.yml",
     "wait": true,
     "condition": "always" 
-  }
+  },
   {
     "name": "2. 更新文档链接", 
     "filename": "document.yml", 
