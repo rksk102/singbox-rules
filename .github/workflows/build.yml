@@ -1,8 +1,6 @@
 name: Rule Set Manager
 
 on:
-  schedule:
-    - cron: '0 22 * * *' # 每天北京时间早6点执行
   workflow_dispatch:
 
 jobs:
