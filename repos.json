@@ -1,8 +1,7 @@
 [
   {
     "name": "rksk102/rules",
-    "url": "https://github.com/rksk102/mihomo-rule-library
-",
+    "url": "https://github.com/rksk102/mihomo-rule-library",
     "remote_path": "merged-rules",
     "local_subdir": "rulesets"
   }
