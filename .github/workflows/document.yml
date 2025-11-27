@@ -22,7 +22,7 @@ jobs:
         env:
           # 传入仓库名用于生成链接和徽章
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python docs_gen.py
+        run: python src/docs_gen.py
 
       - name: Commit README
         uses: stefanzweifel/git-auto-commit-action@v5
