@@ -42,7 +42,7 @@ jobs:
       # --- 核心：运行你的全能脚本 ---
       # 这一步会读取 repos.json -> 拉取 -> 清洗 -> 编译
       - name: Execute Main Script
-        run: python main.py
+        run: python -u main.py
 
       # --- 提交结果 ---
       - name: Commit Changes
