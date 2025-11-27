@@ -1,7 +1,7 @@
 [
   {
-    "name": "同步上游规则",
-    "filename": "sync-rules.yml",
+    "name": "运行拉取和编译",
+    "filename": "build.yml",
     "wait": true,
     "condition": "always" 
   }
