@@ -1,5 +1,4 @@
 import os
-import urllib.parse
 from datetime import datetime, timezone, timedelta
 
 # ================= 配置区域 =================
@@ -8,107 +7,82 @@ OUTPUT_FILE = "README.md"
 DIR_JSON = "./rules-json"
 DIR_SRS = "./rules-srs"
 
-# 🌏 定义加速镜像源 (你可以按需添加更多)
-# key: 显示的名称 (Emoji + 文字)
-# url_prefix: 镜像前缀
-MIRRORS = [
-    {
-        "name": "🚀 GhProxy",
-        "prefix": "https://ghproxy.net/https://raw.githubusercontent.com"
-    },
-    {
-        "name": "🛸 GitMirror",
-        "prefix": "https://raw.gitmirror.com"
-    },
-    {
-        "name": "⚡ 404 Lab",
-        "prefix": "https://raw.kgithub.com"
-    }
-]
-# ===========================================
-
 def get_beijing_time():
     utc_dt = datetime.utcnow().replace(tzinfo=timezone.utc)
     bj_dt = utc_dt.astimezone(timezone(timedelta(hours=8)))
     return bj_dt.strftime("%Y-%m-%d %H:%M")
 
-def generate_link_group(repo_slug, file_path, is_srs=False):
+def create_link_block(repo, branch, file_path):
     """
-    生成一组链接 (官方 + 所有镜像)
-    返回 HTML 字符串
+    生成一个链接块：包含原始链接和多个加速链接
     """
-    # 1. 官方链接 (Git Raw)
-    raw_url = f"https://raw.githubusercontent.com/{repo_slug}/{BRANCH}/{file_path}"
+    # 1. 原始 Github 链接
+    raw_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{file_path}"
     
-    # 构建 HTML 链接组
-    links_html = []
+    # 2. 加速链接生成
+    # (1) GhProxy (通用代理)
+    url_ghproxy = f"https://ghproxy.net/{raw_url}"
     
-    # 添加官方源
-    links_html.append(f'<a href="{raw_url}">🏠 Github</a>')
+    # (2) KGithub (以前的 fastgit)
+    # 格式: raw.kgithub.com/user/repo/branch/file
+    url_kgithub = f"https://raw.kgithub.com/{repo}/{branch}/{file_path}"
     
-    # 添加镜像源
-    for mirror in MIRRORS:
-        # 拼接 URL: 镜像前缀 + /用户名/仓库/分支/文件路径
-        # 注意: 有些镜像代理直接拼接完整 URL，有些是拼接路径。
-        # 这里处理常见的 "https://ghproxy.net/https://raw..." 和 "https://raw.fastgit..." 两种情况
-        
-        if mirror["prefix"].startswith("https://ghproxy"):
-            # GhProxy 风格: prefix + full_raw_url
-            mirror_url = f"{mirror['prefix']}/{raw_url}"
-        else:
-            # GitMirror/FastGit 风格: prefix / user / repo / branch / file
-            mirror_url = f"{mirror['prefix']}/{repo_slug}/{BRANCH}/{file_path}"
-            
-        links_html.append(f'<a href="{mirror_url}">{mirror["name"]}</a>')
-    
-    # 用 " | " 分隔，或者换行
-    return " &nbsp;|&nbsp; ".join(links_html)
+    # (3) GitMirror (很稳的 CDN)
+    # 格式: raw.gitmirror.com/user/repo/branch/file
+    url_gitmirror = f"https://raw.gitmirror.com/{repo}/{branch}/{file_path}"
+
+    # 3. 构建 HTML 输出
+    # 使用 <br> 换行，让原始链接和加速链接分开
+    # 使用 &nbsp; 增加间距
+    html = (
+        f"<b>🌍 Original:</b> <a href='{raw_url}'>Github Raw</a><br>"
+        f"<b>🚀 Mirrors:</b> "
+        f"<a href='{url_ghproxy}' title='GhProxy'>GhProxy</a> &nbsp;·&nbsp; "
+        f"<a href='{url_gitmirror}' title='GitMirror'>GitMirror</a> &nbsp;·&nbsp; "
+        f"<a href='{url_kgithub}' title='KGithub'>KGithub</a>"
+    )
+    return html
 
 def generate_markdown():
     repo_slug = os.getenv("GITHUB_REPOSITORY", "User/Repo")
     update_time = get_beijing_time()
 
-    # 徽章列表
+    # 徽章
     badges = [
         f"![Build](https://img.shields.io/github/actions/workflow/status/{repo_slug}/manager.yml?style=flat-square&logo=github&label=Build)",
         f"![Size](https://img.shields.io/github/repo-size/{repo_slug}?style=flat-square&label=Size&color=success)",
-        f"![Last Commit](https://img.shields.io/github/last-commit/{repo_slug}?style=flat-square&label=Last%20Update&color=blue)",
         f"![Rules](https://img.shields.io/badge/Rules-Sing--box-blueviolet?style=flat-square&logo=sing-box)"
     ]
 
     content_lines = [
         "<div align='center'>",
         "",
-        "# 🦄 Sing-box Rule Sets Collection",
+        "# 🦄 Sing-box Rule Sets",
         "",
         " ".join(badges),
         "",
-        "**自动化构建 · 每日更新 · 全球加速**",
+        "**每日自动更新 · 包含 IP 与 域名规则 · 全球多源加速**",
         "",
-        f"`最后更新于: {update_time} (北京时间)`",
+        f"`更生时间: {update_time} (北京时间)`",
         "",
         "</div>",
         "",
-        "## ✨ 简介",
-        "本项目旨在提供 **高质量、高可用** 的 Sing-box 规则集。通过 GitHub Actions 定时从上游同步规则，并编译为二进制 (`.srs`) 格式，专为低性能设备和追求极致速度的用户设计。",
-        "",
-        "> 💡 **提示**: 移动端或部分网络环境也是可以直接访问下方加速链接的。",
-        "",
+        "## 📖 使用说明",
         "<details>",
-        "<summary><h3>🛠️ 如何在 Sing-box 中使用 (配置示例)</h3></summary>",
+        "<summary><strong>👇 点此查看 Sing-box 配置示例</strong></summary>",
         "",
-        "在你的 Sing-box `config.json` 的 `route` 部分配置如下：",
-        "",
+        "### 1. 远程引用 (推荐)",
+        "请在下方表格中复制 `GhProxy` 或 `GitMirror` 的链接，填入 configuration:",
         "```json",
         "{",
         '  "route": {',
         '    "rule_set": [',
         '      {',
         '        "type": "remote",',
-        '        "tag": "geosite-google",',
+        '        "tag": "my-rule",',
         '        "format": "binary",',
-        '        "url": "请复制下方表格中的【🚀 GhProxy】链接",',
-        '        "download_detour": "select" // 务必确保你有这个出站代理',
+        '        "url": "https://ghproxy.net/https://raw.githubusercontent.com/...",',
+        '        "download_detour": "proxy"',
         "      }",
         "    ]",
         "  }",
@@ -118,16 +92,15 @@ def generate_markdown():
         "",
         "---",
         "",
-        "## 📂 规则下载列表",
+        "## 📂 规则下载",
         "",
-        "# ⚠️ 移动端请【向左滑动】查看完整下载链接",
+        "> 💡 **提示**: 表格中第一行是官方源，第二行是国内加速源。",
         "",
-        "| 📁 规则名称 | 🚀 SRS (二进制 / 推荐) | 📄 JSON (文本 / 源码) |",
+        "| 规则名称 (Name) | 🚀 SRS (二进制/Binary) | 📄 JSON (源码/Source) |",
         "| :--- | :--- | :--- |"
     ]
 
     file_count = 0
-    
     if not os.path.exists(DIR_JSON):
         print(f"❌ 错误: 找不到 {DIR_JSON} 目录")
         return
@@ -146,37 +119,33 @@ def generate_markdown():
             path_json = os.path.join(rel_path, file).replace("\\", "/")
             path_srs = os.path.join(rel_path, f"{file_name}.srs").replace("\\", "/")
             
-            # 1. 处理显示名称 (美化)
+            # 1. 左侧文件名美化
             if rel_path:
-                # 替换 meta-geo -> Geo 等 (如果需要更高级改名逻辑可以在这写)
-                # 这里做个简单的图标展示
-                display_name = f"📂 <b>{rel_path}</b><br>└─ 📄 `{file_name}`"
+                display_name = f"📂 <b>{rel_path}</b><br>└─ `{file_name}`"
             else:
                 display_name = f"📄 **{file_name}**"
 
-            # 2. 生成链接 HTML
-            links_json = generate_link_group(repo_slug, path_json, is_srs=False)
-            
-            # 检查 SRS 是否存在
+            # 2. 生成 JSON 链接块
+            html_json = create_link_block(repo_slug, BRANCH, path_json)
+
+            # 3. 生成 SRS 链接块 (如果存在)
             srs_abs_path = os.path.join(DIR_SRS, path_srs)
             if os.path.exists(srs_abs_path):
-                links_srs = generate_link_group(repo_slug, path_srs, is_srs=True)
+                html_srs = create_link_block(repo_slug, BRANCH, path_srs)
             else:
-                links_srs = "⚠️ <i>编译失败或未生成</i>"
+                html_srs = "⚠️ <i>Pending</i>"
 
-            # 虽然 Markdown 表格里不能直接换行，但 <br> 标签是有效的
-            # 为了表格紧凑，我们允许链接换行，或者保持一行
-            content_lines.append(f"| {display_name} | {links_srs} | {links_json} |")
+            content_lines.append(f"| {display_name} | {html_srs} | {html_json} |")
             file_count += 1
 
     content_lines.append("")
     content_lines.append("---")
-    content_lines.append(f"<div align='center'><sub>本项目共包含 {file_count} 个规则集 · 自动构建脚本 Powered by Python</sub></div>")
+    content_lines.append(f"<div align='center'><sub>Project maintained by Actions · Total {file_count} rules</sub></div>")
 
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         f.write("\n".join(content_lines))
     
-    print(f"✅ 豪华版 README.md 已生成！")
+    print(f"✅ 旗舰版 README 已生成")
 
 if __name__ == "__main__":
     generate_markdown()
