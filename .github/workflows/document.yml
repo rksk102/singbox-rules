@@ -1,7 +1,7 @@
 name: Update Documentation
 
 on:
-  workflow_dispatch: # 仅允许被触发
+  workflow_dispatch: # 被指挥官调用
 
 jobs:
   gen_docs:
@@ -18,16 +18,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 运行生成脚本
-      - name: Generate RULESETS.md
+      - name: Generate README
         env:
-          # 传递仓库名字给 Python 脚本
+          # 传入仓库名用于生成链接和徽章
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python docs_gen.py
 
-      # 提交更改
-      - name: Commit Documentation
+      - name: Commit README
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Docs: Auto update rule links [skip ci]"
-          file_pattern: "RULESETS.md"
+          commit_message: "Docs: Auto update README rule list [skip ci]"
+          # ⚠️ 关键：必须指定 README.md
+          file_pattern: "README.md"
