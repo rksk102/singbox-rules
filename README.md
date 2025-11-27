@@ -1,31 +1,54 @@
-# 🚀 Sing-box 自用规则集
+<div align='center'>
 
-![Auto Build](https://github.com/rksk102/singbox-rules/actions/workflows/manager.yml/badge.svg)
+# 🚀 Sing-box Rule Sets
 
-本项目由自动化工作流维护，定时拉取上游规则并编译为 Sing-box 兼容格式。
-所有规则均已编译为 **SRS (Sing-box Rule Set)** 二进制格式，以获得最佳性能。
+![Build Status](https://img.shields.io/github/actions/workflow/status/rksk102/singbox-rules/manager.yml?style=flat-square&logo=github&label=Build) ![Repo Size](https://img.shields.io/github/repo-size/rksk102/singbox-rules?style=flat-square&label=Size&color=orange)
+
+**自动同步与编译脚本 · 每日更新 · 多源加速**
+
+</div>
+
+## 📖 简介
+本项目基于 GitHub Actions 自动拉取上游规则，并编译为 **Sing-box SRS** 二进制格式。支持 GitHub 原生链接与加速镜像链接，方便不同网络环境使用。
+
+<details>
+<summary><strong>🛠️ 如何在 Sing-box 中使用？(点击展开)</strong></summary>
+
+### 远程规则集配置示例
+在 `config.json` 的 `route` -> `rule_set` 中添加：
+
+```json
+{
+  "type": "remote",
+  "tag": "geosite-google",
+  "format": "binary",
+  "url": "复制下方的 SRS 加速链接",
+  "download_detour": "select" // 用于下载规则的代理出站
+}
+```
+</details>
 
 ## 📂 规则列表
-> 点击下方链接可直接复制使用。
 
-| 规则名称 | 📝 JSON (Source) | 🚀 SRS (Binary) |
-| :--- | :---: | :---: |
-| **rulesets/block/domain/rksk102** / all-adblock | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/block/domain/rksk102/all-adblock.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/block/domain/rksk102/all-adblock.srs) |
-| **rulesets/block/domain/Loyalsoldier** / reject | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/block/domain/Loyalsoldier/reject.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/block/domain/Loyalsoldier/reject.srs) |
-| **rulesets/block/domain/Loyalsoldier** / win-extra | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/block/domain/Loyalsoldier/win-extra.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/block/domain/Loyalsoldier/win-extra.srs) |
-| **rulesets/block/domain/Loyalsoldier** / win-spy | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/block/domain/Loyalsoldier/win-spy.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/block/domain/Loyalsoldier/win-spy.srs) |
-| **rulesets/proxy/domain/rksk102** / all-proxy | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/proxy/domain/rksk102/all-proxy.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/proxy/domain/rksk102/all-proxy.srs) |
-| **rulesets/proxy/domain/Loyalsoldier** / gfw | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/proxy/domain/Loyalsoldier/gfw.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/proxy/domain/Loyalsoldier/gfw.srs) |
-| **rulesets/proxy/domain/gh-proxy.com** / category-ai-!cn | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/proxy/domain/gh-proxy.com/category-ai-!cn.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/proxy/domain/gh-proxy.com/category-ai-!cn.srs) |
-| **rulesets/direct/ipcidr/rksk102** / all-cnip | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/direct/ipcidr/rksk102/all-cnip.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/direct/ipcidr/rksk102/all-cnip.srs) |
-| **rulesets/direct/ipcidr/Loyalsoldier** / lancidr | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/direct/ipcidr/Loyalsoldier/lancidr.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/direct/ipcidr/Loyalsoldier/lancidr.srs) |
-| **rulesets/direct/domain/Loyalsoldier** / apple-cn | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/direct/domain/Loyalsoldier/apple-cn.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/direct/domain/Loyalsoldier/apple-cn.srs) |
-| **rulesets/direct/domain/Loyalsoldier** / direct-list | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/direct/domain/Loyalsoldier/direct-list.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/direct/domain/Loyalsoldier/direct-list.srs) |
-| **rulesets/direct/domain/Loyalsoldier** / private | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/direct/domain/Loyalsoldier/private.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/direct/domain/Loyalsoldier/private.srs) |
-| **rulesets/direct/domain/MetaCubeX** / geolocation-cn | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/direct/domain/MetaCubeX/geolocation-cn.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/direct/domain/MetaCubeX/geolocation-cn.srs) |
-| **rulesets/direct/domain/github.com** / microsoft-cn | [JSON](https://github.com/rksk102/singbox-rules/raw/main/rules-json/rulesets/direct/domain/github.com/microsoft-cn.json) | [SRS](https://github.com/rksk102/singbox-rules/raw/main/rules-srs/rulesets/direct/domain/github.com/microsoft-cn.srs) |
+| 规则路径 / 名称 | 📄 Source (JSON) | 🚀 Binary (SRS) |
+| :--- | :--- | :--- |
+| 📂 **rulesets/block/domain/rksk102**<br>└─ `all-adblock` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/block/domain/rksk102/all-adblock.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/block/domain/rksk102/all-adblock.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/block/domain/rksk102/all-adblock.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/block/domain/rksk102/all-adblock.srs) |
+| 📂 **rulesets/block/domain/Loyalsoldier**<br>└─ `reject` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/block/domain/Loyalsoldier/reject.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/block/domain/Loyalsoldier/reject.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/block/domain/Loyalsoldier/reject.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/block/domain/Loyalsoldier/reject.srs) |
+| 📂 **rulesets/block/domain/Loyalsoldier**<br>└─ `win-extra` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/block/domain/Loyalsoldier/win-extra.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/block/domain/Loyalsoldier/win-extra.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/block/domain/Loyalsoldier/win-extra.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/block/domain/Loyalsoldier/win-extra.srs) |
+| 📂 **rulesets/block/domain/Loyalsoldier**<br>└─ `win-spy` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/block/domain/Loyalsoldier/win-spy.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/block/domain/Loyalsoldier/win-spy.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/block/domain/Loyalsoldier/win-spy.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/block/domain/Loyalsoldier/win-spy.srs) |
+| 📂 **rulesets/proxy/domain/rksk102**<br>└─ `all-proxy` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/proxy/domain/rksk102/all-proxy.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/proxy/domain/rksk102/all-proxy.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/proxy/domain/rksk102/all-proxy.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/proxy/domain/rksk102/all-proxy.srs) |
+| 📂 **rulesets/proxy/domain/Loyalsoldier**<br>└─ `gfw` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/proxy/domain/Loyalsoldier/gfw.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/proxy/domain/Loyalsoldier/gfw.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/proxy/domain/Loyalsoldier/gfw.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/proxy/domain/Loyalsoldier/gfw.srs) |
+| 📂 **rulesets/proxy/domain/gh-proxy.com**<br>└─ `category-ai-!cn` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/proxy/domain/gh-proxy.com/category-ai-!cn.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/proxy/domain/gh-proxy.com/category-ai-!cn.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/proxy/domain/gh-proxy.com/category-ai-!cn.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/proxy/domain/gh-proxy.com/category-ai-!cn.srs) |
+| 📂 **rulesets/direct/ipcidr/rksk102**<br>└─ `all-cnip` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/ipcidr/rksk102/all-cnip.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/ipcidr/rksk102/all-cnip.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/ipcidr/rksk102/all-cnip.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/ipcidr/rksk102/all-cnip.srs) |
+| 📂 **rulesets/direct/ipcidr/Loyalsoldier**<br>└─ `lancidr` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/ipcidr/Loyalsoldier/lancidr.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/ipcidr/Loyalsoldier/lancidr.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/ipcidr/Loyalsoldier/lancidr.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/ipcidr/Loyalsoldier/lancidr.srs) |
+| 📂 **rulesets/direct/domain/Loyalsoldier**<br>└─ `apple-cn` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/Loyalsoldier/apple-cn.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/Loyalsoldier/apple-cn.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/Loyalsoldier/apple-cn.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/Loyalsoldier/apple-cn.srs) |
+| 📂 **rulesets/direct/domain/Loyalsoldier**<br>└─ `direct-list` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/Loyalsoldier/direct-list.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/Loyalsoldier/direct-list.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/Loyalsoldier/direct-list.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/Loyalsoldier/direct-list.srs) |
+| 📂 **rulesets/direct/domain/Loyalsoldier**<br>└─ `private` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/Loyalsoldier/private.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/Loyalsoldier/private.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/Loyalsoldier/private.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/Loyalsoldier/private.srs) |
+| 📂 **rulesets/direct/domain/MetaCubeX**<br>└─ `geolocation-cn` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/MetaCubeX/geolocation-cn.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/MetaCubeX/geolocation-cn.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/MetaCubeX/geolocation-cn.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/MetaCubeX/geolocation-cn.srs) |
+| 📂 **rulesets/direct/domain/github.com**<br>└─ `microsoft-cn` | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/github.com/microsoft-cn.json)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-json/rulesets/direct/domain/github.com/microsoft-cn.json) | [⚡ **加速下载**](https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/github.com/microsoft-cn.srs)<br><br>[🐈 Github](https://raw.githubusercontent.com/rksk102/singbox-rules/main/rules-srs/rulesets/direct/domain/github.com/microsoft-cn.srs) |
 
-## ⚙️ 自动化配置
-- 自动更新时间: 每天
-- 包含规则总数: 14 个
-- Powered by Github Actions & Sing-box
+---
+<div align='center'>
+<strong>统计:</strong> 共包含 14 个规则集 &nbsp;|&nbsp; 
+<strong>最后更新 (北京时间):</strong> 2025-11-27 13:07:16
+</div>
