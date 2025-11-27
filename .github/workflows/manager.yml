@@ -27,4 +27,4 @@ jobs:
           # 必须传入 GITHUB_TOKEN，这样 gh 命令才有权操作
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python orchestrator.py
+          python src/orchestrator.py
