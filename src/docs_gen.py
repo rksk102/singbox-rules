@@ -7,8 +7,8 @@ OUTPUT_FILE = "README.md"
 DIR_JSON = "./rules-json"
 DIR_SRS = "./rules-srs"
 
-# 官方 Logo 地址
-LOGO_URL = "https://raw.githubusercontent.com/SagerNet/sing-box/dev/docs/assets/logo.svg"
+# 修复 Logo: 使用 Sing-box 官网的 Logo 资源
+LOGO_URL = "https://sing-box.sagernet.org/assets/icon.svg"
 
 def get_beijing_time():
     utc_dt = datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -16,25 +16,15 @@ def get_beijing_time():
     return bj_dt.strftime("%Y-%m-%d %H:%M")
 
 def create_button_group(repo, branch, file_path):
-    """
-    生成“按钮风格”的链接组
-    GitHub 的 Markdown 渲染 <code> 标签时会带有灰色背景和边框，
-    配合 <a> 标签可以做成类似按钮的效果。
-    """
+    """保留你喜欢的按钮样式"""
     raw_url = f"https://raw.githubusercontent.com/{repo}/{branch}/{file_path}"
-    
-    # 加速源定义
-    # 注意：这里使用 HTML 语法而不是 Markdown，以确保对齐和样式控制
     url_ghproxy = f"https://ghproxy.net/{raw_url}"
     url_gitmirror = f"https://raw.gitmirror.com/{repo}/{branch}/{file_path}"
     
-    # 样式逻辑：
-    # 原始链接用普通文本，加速链接用“代码块按钮”突出显示
     html = (
         f"<a href='{url_ghproxy}'><code>🚀 GhProxy</code></a>&nbsp;" 
-        f"<a href='{url_gitmirror}'><code>🛸 Mirror</code></a>&nbsp;"
-        f"<br>"
-        f"<a href='{raw_url}' style='font-size:12px; color: gray;'>Original Source</a>"
+        f"<a href='{url_gitmirror}'><code>🛸 Mirror</code></a><br>"
+        f"<a href='{raw_url}' style='font-size:12px; color: #8b949e;'>Original Source</a>"
     )
     return html
 
@@ -42,33 +32,44 @@ def generate_markdown():
     repo_slug = os.getenv("GITHUB_REPOSITORY", "User/Repo")
     update_time = get_beijing_time()
 
-    # 顶部徽章
+    # 徽章 (使用 unified 风格)
     badges = [
-        f"![Build Status](https://img.shields.io/github/actions/workflow/status/{repo_slug}/manager.yml?style=flat-square&logo=github&color=4c1 )",
-        f"![Rule Count](https://img.shields.io/badge/Rules-Dynamic-blue?style=flat-square&logo=sing-box)",
-        f"![Repo Size](https://img.shields.io/github/repo-size/{repo_slug}?style=flat-square&color=orange)"
+        f"![Build](https://img.shields.io/github/actions/workflow/status/{repo_slug}/manager.yml?style=flat-square&logo=github&label=Build&color=2ea44f)",
+        f"![Size](https://img.shields.io/github/repo-size/{repo_slug}?style=flat-square&label=Size&color=0969da)",
+        f"![License](https://img.shields.io/github/license/{repo_slug}?style=flat-square&color=orange)"
     ]
 
     content_lines = [
+        # --- 头部 Hero 区域 ---
         f"<div align='center'>",
         f"",
-        f"<img src='{LOGO_URL}' width='100' alt='Sing-box Logo'>",
+        f"<img src='{LOGO_URL}' width='120' height='120' alt='Logo'>",
         f"",
-        f"# Sing-box 规则集仓库",
+        f"# Sing-box Rule Sets",
         f"",
         f"{' '.join(badges)}",
         f"",
-        f"<p>每天 <strong>{update_time}</strong> (北京时间) 自动更新</p>",
-        f"<p>提供 <strong>多源加速接口</strong>，适配各类网络环境</p>",
+        f"<h3>🚀 专为 Sing-box 打造的自动化规则仓库</h3>",
+        f"<p style='color: #57606a;'>每日自动拉取上游资源 • 编译二进制 SRS • 全球 CDN 加速</p>",
         f"",
         f"</div>",
         f"",
-        f"## ⚡ 快速开始",
+        # --- 仪表盘特性区 (表格布局) ---
+        f"| 🤖 **全自动维护** | 🏎️ **极速下载** | 🛡️ **多格式兼容** |",
+        f"| :---: | :---: | :---: |",
+        f"| 每小时通过 Actions<br>自动同步上游源 | 集成 `GhProxy` 等<br>国内高速镜像 | 提供 **Pre-complied SRS**<br>与原始 JSON |",
+        f"",
+        f"---",
+        f"",
+        # --- 使用说明区 ---
+        f"## ⚙️ 配置指南",
+        f"",
+        f"> 💡 **新手提示**: 推荐使用二进制规则集 (`.srs`)，加载速度更快，内存占用更有优势。",
         f"",
         f"<details>",
-        f"<summary><strong>点此展开：如何配置 config.json</strong></summary>",
+        f"<summary><strong>📝 点击展开 `config.json` 参考配置</strong></summary>",
         f"",
-        f"> 💡 **提示**: 请直接复制下方表格中 `🚀 GhProxy` 按钮对应的链接。",
+        f"请复制下方表格中 `🚀 GhProxy` 按钮对应的链接，填入 `url` 字段：",
         f"",
         f"```json",
         f"{{",
@@ -79,7 +80,7 @@ def generate_markdown():
         f'        "tag": "geosite-google",',
         f'        "format": "binary",',
         f'        "url": "https://ghproxy.net/https://raw.githubusercontent.com/...",',
-        f'        "download_detour": "proxy"',
+        f'        "download_detour": "proxy-out" // ⚠️ 确保你有这个出站 tag',
         f"      }}",
         f"    ]",
         f"  }}",
@@ -87,9 +88,14 @@ def generate_markdown():
         f"```",
         f"</details>",
         f"",
-        f"## 📦 规则下载列表",
+        f"---",
         f"",
-        f"| 规则名称 | 🚀 SRS (二进制 - 推荐) | 📄 JSON (源码) |",
+        # --- 规则列表区 ---
+        f"## 📥 规则下载汇编",
+        f"",
+        f"<div align='right'>📅 <strong>最后更新:</strong> {update_time} (北京时间)</div>",
+        f"",
+        f"| 规则集名称 (Name) | 🚀 SRS (二进制) | 📄 JSON (源码) |",
         f"| :--- | :--- | :--- |"
     ]
 
@@ -112,33 +118,33 @@ def generate_markdown():
             path_json = os.path.join(rel_path, file).replace("\\", "/")
             path_srs = os.path.join(rel_path, f"{file_name}.srs").replace("\\", "/")
             
-            # 名称美化
-            # 如果有子目录，用小字体显示目录名，粗体显示文件名
+            # --- 美化名称显示 ---
+            # 使用 HTML 标签控制颜色和大小
             if rel_path:
-                display_name = f"<sub>📂 {rel_path}</sub><br><strong>{file_name}</strong>"
+                # 文件夹用灰色，文件名用加粗黑色/白色
+                display_name = f"<span style='color: #57606a; font-size: 0.85em;'>📂 {rel_path} /</span><br><strong>{file_name}</strong>"
             else:
                 display_name = f"<strong>{file_name}</strong>"
 
-            # 链接生成
             html_json = create_button_group(repo_slug, BRANCH, path_json)
             
             srs_abs_path = os.path.join(DIR_SRS, path_srs)
             if os.path.exists(srs_abs_path):
                 html_srs = create_button_group(repo_slug, BRANCH, path_srs)
             else:
-                html_srs = "🚫 <i>Pending</i>"
+                html_srs = "<span style='color: #cf222e;'>⚠️ Missing</span>"
 
             content_lines.append(f"| {display_name} | {html_srs} | {html_json} |")
             file_count += 1
 
     content_lines.append("")
-    content_lines.append("---")
-    content_lines.append(f"<div align='center'><sub>Based on GitHub Actions & Sing-box · 共包含 {file_count} 个规则</sub></div>")
+    content_lines.append("<br>")
+    content_lines.append(f"<div align='center'><sub>Crafted with ❤️ by GitHub Actions · Total {file_count} Rules</sub></div>")
 
     with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
         f.write("\n".join(content_lines))
     
-    print(f"✅ 高颜值 README 已生成 (包含按钮样式)")
+    print(f"✅ 终极美化版 README 已生成")
 
 if __name__ == "__main__":
     generate_markdown()
