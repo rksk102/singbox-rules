@@ -1,0 +1,30 @@
+name: Orchestrator (Master Controller)
+
+on:
+  schedule:
+    - cron: '0 22 * * *' # 每天统一启动一次
+  workflow_dispatch: # 也可以手动按按钮启动全套流程
+
+jobs:
+  command_center:
+    runs-on: ubuntu-latest
+    permissions:
+      # 必须赋予 actions: write 权限，否则无法触发其他工作流
+      actions: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Run Orchestrator
+        env:
+          # 必须传入 GITHUB_TOKEN，这样 gh 命令才有权操作
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python orchestrator.py
