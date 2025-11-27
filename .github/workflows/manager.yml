@@ -2,7 +2,7 @@ name: Orchestrator (Master Controller)
 
 on:
   schedule:
-    - cron: '0 22 * * *' # 每天统一启动一次
+    - cron: '0 * * * *'
   workflow_dispatch: # 也可以手动按按钮启动全套流程
 
 jobs:
