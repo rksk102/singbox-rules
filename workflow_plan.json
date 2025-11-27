@@ -1,0 +1,8 @@
+[
+  {
+    "name": "同步上游规则",
+    "filename": "sync-rules.yml",
+    "wait": true,
+    "condition": "always" 
+  }
+]
