@@ -1,8 +1,14 @@
 [
   {
-    "name": "运行拉取和编译",
+    "name": "1. 运行拉取和编译",
     "filename": "build.yml",
     "wait": true,
+    "condition": "always" 
+  }
+  {
+    "name": "2. 更新文档链接", 
+    "filename": "document.yml", 
+    "wait": false, 
     "condition": "always" 
   }
 ]
