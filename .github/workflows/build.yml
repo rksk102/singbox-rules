@@ -1,9 +1,9 @@
-name: 1. Rule Set Build (Pro)
+name: Rule Set Build (Pro)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 20 * * *'  # 每天北京时间早4点
+    - cron: '0 20 * * *'  # 每天北京时间早4点 (UTC 20:00)
   push:
     paths:
       - 'repos.json'
@@ -14,40 +14,55 @@ jobs:
     name: 🚀 Build Rules
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # 需要写权限来提交代码
+    timeout-minutes: 10 # 防止脚本卡死消耗额度
 
     steps:
-      - name: Checkout
+      - name: 📥 Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+          cache: 'pip' # 自动缓存 pip 依赖
 
-      - name: Install Dependencies
+      - name: 📦 Install Dependencies
         run: pip install rich
 
-      - name: Install Sing-box
+      - name: 🛠️ Install Sing-box
         run: |
           echo "::group::Download & Install Sing-box"
-          # 自动获取最新 Linux AMD64 版本
+          # 1. 获取最新 release 的下载链接 (过滤出 linux-amd64.tar.gz)
           LATEST_URL=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r '.assets[] | select(.name | contains("linux-amd64.tar.gz")) | .browser_download_url')
+          
+          if [ -z "$LATEST_URL" ]; then
+            echo "❌ Failed to fetch latest sing-box URL"
+            exit 1
+          fi
+
           echo "🔗 Downloading: $LATEST_URL"
           
+          # 2. 下载并解压
           wget -qO sb.tar.gz "$LATEST_URL"
           tar -zxf sb.tar.gz
+          
+          # 3. 安装到 PATH
           sudo mv sing-box-*/sing-box /usr/local/bin/
+          sudo chmod +x /usr/local/bin/sing-box
+          
+          # 4. 清理
           rm -rf sing-box-* sb.tar.gz
           
+          # 5. 验证
           sing-box version
           echo "::endgroup::"
 
-      - name: Run Builder
+      - name: 🚀 Run Builder
         run: python -u src/main.py
 
-      - name: Commit Results
-        if: success() # 只有构建成功才提交
+      - name: 📤 Commit Results
+        if: success() # 只有 Python 脚本成功运行才提交
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto: Update rules [skip ci]"
