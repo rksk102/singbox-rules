@@ -42,42 +42,64 @@ def get_type_badge(filename):
 
 def generate_source_badge(repo, path):
     """
-    第四列：单独的 GitHub 源文件链接
+    第4列：GitHub 源文件 - 这里的按钮也设置固定宽度
     """
     url = f"https://github.com/{repo}/blob/{BRANCH}/{path}"
-    # 黑色徽章，代表 Github 官方
+    # 黑色徽章
     img = "https://img.shields.io/badge/View_Source-181717?style=flat-square&logo=github"
-    return f"<div align='center'><a href='{url}'><img src='{img}'></a></div>"
+    # width='120' 稍微比下载按钮短一点，区分主次
+    return f"<div align='center'><a href='{url}'><img src='{img}' width='120' alt='Source'></a></div>"
 
-def generate_cdn_badges(repo, path):
+def generate_cdn_badges_vertical(repo, path):
     """
-    第五列：CDN 加速下载组 (GhProxy + KGitHub + jsDelivr)
+    第5列：垂直排列的等宽下载按钮
     """
-    # URL 定义
+    # 1. 定义 URLs
     url_ghproxy = f"https://ghproxy.net/https://raw.githubusercontent.com/{repo}/{BRANCH}/{path}"
     url_kgithub = f"https://raw.kgithub.com/{repo}/{BRANCH}/{path}"
     url_jsdelivr = f"https://cdn.jsdelivr.net/gh/{repo}@{BRANCH}/{path}"
 
-    # 徽章图片
-    # 1. GhProxy (主): 绿色
-    img_main = "https://img.shields.io/badge/🚀_Fast_Install-GhProxy-2ecc71?style=flat-square"
-    # 2. KGitHub (备): 橙色
-    img_kgh = "https://img.shields.io/badge/KGitHub-orange?style=flat-square"
-    # 3. jsDelivr (备): 红色
-    img_jsd = "https://img.shields.io/badge/jsDelivr-ft5252?style=flat-square&logo=jsdelivr&logoColor=white"
+    # 2. 定义徽章图片
+    # 为了保证美观，Label 建议统一，例如都叫 Install 或 Download
+    img_gh = "https://img.shields.io/badge/Install-GhProxy-2ecc71?style=flat-square&logo=rocket"
+    img_kg = "https://img.shields.io/badge/Install-KGitHub-orange?style=flat-square&logo=thunder"
+    img_js = "https://img.shields.io/badge/Install-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white"
 
-    # 布局构造：
-    # 第一行：GhProxy (大)
-    # 第二行：KGitHub + jsDelivr (并在中间加宽间距)
+    # 3. 样式控制
+    # width="160" 是核心：强制拉伸图片到 160px 宽，实现“一样长”
+    # margin-bottom: 5px 实现垂直间距
+    btn_style = "width='160'" 
+    div_style = "margin-bottom: 6px;" 
+
     html = (
         f"<div align='center'>"
-        f"<a href='{url_ghproxy}'><img src='{img_main}' height='24'></a>" #稍微高一点突显主次
-        f"<br>"
-        f"<div style='margin-top: 6px;'>" # 垂直间距
-        f"<a href='{url_kgithub}'><img src='{img_kgh}'></a>"
-        f"&emsp;" # <--- 关键：全角空格，强制水平间距
-        f"<a href='{url_jsdelivr}'><img src='{img_jsd}'></a>"
+        # 按钮 1
+        f"<div style='{div_style}'><a href='{url_ghproxy}'><img src='{img_gh}' {btn_style}></a></div>"
+        # 按钮 2
+        f"<div style='{div_style}'><a href='{url_kgithub}'><img src='{img_kg}' {btn_style}></a></div>"
+        # 按钮 3 (最后一个不需要底部边距，但为了统一加上也无妨，或者去掉)
+        f"<div><a href='{url_jsdelivr}'><img src='{img_js}' {btn_style}></a></div>"
         f"</div>"
+    )
+    return html
+
+def generate_json_badges_vertical(repo, path):
+    """
+    JSON 列表的下载列
+    """
+    url_k = f"https://raw.kgithub.com/{REPO}/{BRANCH}/{path}"
+    url_j = f"https://cdn.jsdelivr.net/gh/{REPO}@{BRANCH}/{path}"
+    
+    img_k = "https://img.shields.io/badge/Mirror-KGitHub-orange?style=flat-square&logo=thunder"
+    img_j = "https://img.shields.io/badge/Mirror-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white"
+
+    btn_style = "width='160'" 
+    div_style = "margin-bottom: 6px;" 
+    
+    html = (
+        f"<div align='center'>"
+        f"<div style='{div_style}'><a href='{url_k}'><img src='{img_k}' {btn_style}></a></div>"
+        f"<div><a href='{url_j}'><img src='{img_j}' {btn_style}></a></div>"
         f"</div>"
     )
     return html
@@ -100,7 +122,7 @@ def generate_markdown():
     lines.append(f"")
     
     lines.append(f"<details>")
-    lines.append(f"<summary><strong>🛠️ <code>config.json</code> Configuration Example (配置示例)</strong></summary>")
+    lines.append(f"<summary><strong>🛠️ <code>config.json</code> Template (配置示例)</strong></summary>")
     lines.append(f"")
     lines.append(f"```json")
     lines.append(f"{{")
@@ -110,7 +132,7 @@ def generate_markdown():
     lines.append(f'        "tag": "geosite-example",')
     lines.append(f'        "type": "remote",')
     lines.append(f'        "format": "binary",')
-    lines.append(f'        "url": "Paste the GhProxy Link here (复制表格中的加速链接)",')
+    lines.append(f'        "url": "Paste the GhProxy Link here (右键复制表格中的 GhProxy 链接)",')
     lines.append(f'        "download_detour": "proxy"')
     lines.append(f"      }}")
     lines.append(f"    ]")
@@ -154,32 +176,27 @@ def generate_markdown():
     lines.append(f"## 🚀 SRS Binary Rules")
     lines.append(f"> Recommended for Sing-box. Optimized binary format.")
     lines.append(f"")
-    # 5 列结构
-    lines.append(f"| Rule Name | Type | Size | <div align='center'>GitHub Source</div> | <div align='center'>CDN Downloads</div> |")
+    columns = f"| Rule Name | Type | Size | <div align='center'>GitHub Source</div> | <div align='center'>CDN Downloads</div> |"
+    lines.append(columns)
     lines.append(f"| :--- | :---: | :---: | :---: | :---: |")
 
     srs_count = 0
     for item in file_data:
         if not item["has_srs"]: continue
         
-        # Col 1: Name
         if item["folder"]:
             display_name = f"**{item['folder']}** / `{item['name']}`"
         else:
             display_name = f"`{item['name']}`"
         
-        # Col 2: Type Badge
         badge_type = get_type_badge(item["name"])
-        
-        # Col 3: Size
         size = f"`{item['size_srs']}`"
         
-        # Col 4: Source Badge (Independent)
-        # 这里指向 .json 源码，因为 SRS 是二进制没法看
+        # Col 4: Source (固定宽度 120px)
         source_col = generate_source_badge(REPO, item["p_json"])
         
-        # Col 5: CDN Badges (SRS)
-        cdn_col = generate_cdn_badges(REPO, item["p_srs"])
+        # Col 5: CDN (固定宽度 160px, 垂直堆叠)
+        cdn_col = generate_cdn_badges_vertical(REPO, item["p_srs"])
 
         lines.append(f"| {display_name} | {badge_type} | {size} | {source_col} | {cdn_col} |")
         srs_count += 1
@@ -188,7 +205,7 @@ def generate_markdown():
     
     # ================= JSON SECTION =================
     lines.append(f"## 📄 JSON Source Rules")
-    lines.append(f"| Rule Name | Type | Size | <div align='center'>GitHub Source</div> | <div align='center'>CDN Mirror</div> |")
+    lines.append(columns) # Use same header style
     lines.append(f"| :--- | :---: | :---: | :---: | :---: |")
 
     json_count = 0
@@ -200,23 +217,8 @@ def generate_markdown():
             
         badge_type = get_type_badge(item["name"])
         
-        # Col 4: Source Link
         source_col = generate_source_badge(REPO, item["p_json"])
-        
-        # Col 5: CDN for JSON
-        # JSON 不需要 "Install" 按钮，我们提供简单的镜像 Raw 链接
-        url_k = f"https://raw.kgithub.com/{REPO}/{BRANCH}/{item['p_json']}"
-        url_j = f"https://cdn.jsdelivr.net/gh/{REPO}@{BRANCH}/{item['p_json']}"
-        img_k = "https://img.shields.io/badge/KGitHub-orange?style=flat-square"
-        img_j = "https://img.shields.io/badge/jsDelivr-red?style=flat-square&logo=jsdelivr&logoColor=white"
-        
-        cdn_col = (
-            f"<div align='center'>"
-            f"<a href='{url_k}'><img src='{img_k}'></a>"
-            f"&emsp;"
-            f"<a href='{url_j}'><img src='{img_j}'></a>"
-            f"</div>"
-        )
+        cdn_col = generate_json_badges_vertical(REPO, item["p_json"])
 
         lines.append(f"| {display_name} | {badge_type} | `{item['size_json']}` | {source_col} | {cdn_col} |")
         json_count += 1
@@ -231,7 +233,7 @@ def generate_markdown():
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        print(f"✅ README Updated: 5-Column Layout with jsDelivr.")
+        print(f"✅ README Updated: Vertical Buttons & Fixed Width.")
     except Exception as e:
         print(f"❌ Error: {e}")
 
