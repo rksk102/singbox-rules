@@ -10,14 +10,12 @@ from datetime import timedelta
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# --- 尝试导入 Rich 库 ---
 try:
     from rich.console import Console
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
     from rich.panel import Panel
     from rich.table import Table
     from rich import box
-    from rich import print as rprint
 except ImportError:
     print("Error: Please install rich (pip install rich)")
     sys.exit(1)
@@ -31,10 +29,10 @@ DIR_JSON = ROOT_DIR / "rules-json"
 DIR_SRS = ROOT_DIR / "rules-srs"
 MAX_WORKERS = 4
 
-# --- 预编译正则 ---
+# 正则：匹配合法 IP
 REGEX_IP = re.compile(r'^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/\d+)?)|(?:.*:.*)$')
 
-# --- 统计数据类 ---
+# 统计类
 class WorkflowStats:
     def __init__(self):
         self.start_time = time.time()
@@ -53,10 +51,9 @@ class WorkflowStats:
 stats = WorkflowStats()
 
 # --- 辅助函数 ---
-def write_github_summary():
-    if "GITHUB_STEP_SUMMARY" not in os.environ:
-        return
 
+def write_github_summary():
+    if "GITHUB_STEP_SUMMARY" not in os.environ: return
     md_content = f"""
 # 🚀 构建报告: {stats.status}
 
@@ -67,7 +64,7 @@ def write_github_summary():
 | 🔨 编译文件 | {stats.compile_success} (失败: {stats.compile_fail}) |
 | 📊 规则总条数 | **{stats.total_rules:,}** |
 
-### 📂 编译详情 (Top 20)
+### 📂 Top 20 文件
 | 文件名 | 类型 | 规则数 |
 | :--- | :--- | :---: |
 """
@@ -75,69 +72,57 @@ def write_github_summary():
     for name, rtype, count in sorted_details:
         icon = "🌐" if rtype == "domain_suffix" else "📡"
         md_content += f"| {name} | {icon} `{rtype}` | {count:,} |\n"
-
-    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
-        f.write(md_content)
+    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f: f.write(md_content)
 
 def handle_error(phase, error_msg):
     stats.status = f"❌ 失败于 {phase}"
     console.print(f"\n[bold red]⛔ 致命错误 - {phase}[/bold red]")
-    console.print(Panel(str(error_msg), style="red", title="错误详情"))
+    console.print(Panel(str(error_msg), style="red"))
     write_github_summary()
     sys.exit(1)
 
+def touch_file(path_obj):
+    """强制更新文件的时间戳为当前时间"""
+    try:
+        os.utime(path_obj, None)
+    except:
+        pass
+
 def flatten_directory(target_dir):
-    """
-    暴力平铺：
-    如果 target_dir 下面有名为 rulesets 或 ruleset 的文件夹，
-    将里面的内容全部移动到 target_dir，并删除该文件夹。
-    """
+    """暴力去除 rulesets 层级"""
     problematic_names = ["rulesets", "ruleset"]
-    
-    # 遍历当前目录下的所有子项
-    # 使用 list() 是因为我们在迭代过程中可能会修改目录结构
     for item in list(target_dir.iterdir()): 
         if item.is_dir() and item.name.lower() in problematic_names:
-            console.print(f"[dim]  🧹 正在移除多余层级: {item.name}...[/dim]")
-            
-            # 移动子文件/文件夹到上一层 (target_dir)
+            # 移动内容到外层
             for sub_item in item.iterdir():
                 dst_path = target_dir / sub_item.name
-                
-                # 如果目标存在，先删除目标（覆盖模式）
                 if dst_path.exists():
                     if dst_path.is_dir(): shutil.rmtree(dst_path)
                     else: dst_path.unlink()
-                
                 shutil.move(str(sub_item), str(dst_path))
-            
-            # 删掉那个空的 rulesets 文件夹
+                touch_file(dst_path) # 移动后刷新时间
+            # 删除空文件夹
             shutil.rmtree(item)
 
 # --- 核心逻辑 ---
 
 def init_workspace():
-    console.rule("[bold blue]阶段 1: 初始化工作区[/bold blue]")
-    try:
-        dirs = [DIR_TXT, DIR_JSON, DIR_SRS]
-        created = []
-        for d in dirs:
-            # 1. 强制清理：如果存在，直接删掉整个文件夹
-            if d.exists(): 
-                shutil.rmtree(d)
-                console.print(f"[dim]  🗑️  已删除旧目录: {d.name}[/dim]")
-            # 2. 重新创建
-            d.mkdir(parents=True)
-            created.append(d.name)
-        console.print(f"[green]✅ 工作区准备就绪[/green]")
-    except Exception as e:
-        handle_error("初始化", e)
+    """彻底清洗所有工作目录"""
+    console.rule("[bold blue]阶段 1: 暴力清理旧文件[/bold blue]")
+    dirs = [DIR_TXT, DIR_JSON, DIR_SRS]
+    
+    for d in dirs:
+        if d.exists():
+            console.print(f"[dim]  🔥 正在焚毁旧目录: {d.name}...[/dim]")
+            shutil.rmtree(d) # 彻底删除文件夹及其内容
+        
+        d.mkdir(parents=True) # 重建空目录
+        console.print(f"[green]  ✅ 已重建空目录: {d.name}[/green]")
+    print()
 
 def run_sync_phase():
     console.rule("[bold blue]阶段 2: 同步远程源[/bold blue]")
-    
-    if not CONFIG_FILE.exists():
-        handle_error("配置读取", f"找不到 {CONFIG_FILE}")
+    if not CONFIG_FILE.exists(): handle_error("配置读取", f"找不到 {CONFIG_FILE}")
 
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -148,7 +133,6 @@ def run_sync_phase():
 
     sync_table = Table(box=box.SIMPLE_HEAD)
     sync_table.add_column("仓库", style="cyan")
-    sync_table.add_column("修正操作", style="dim")
     sync_table.add_column("状态", justify="right")
 
     for item in repo_list:
@@ -157,14 +141,12 @@ def run_sync_phase():
             try:
                 url = item.get('url')
                 remote_tgt = item.get('remote_path')
-                # 建议 local_subdir 让用户留空，或者设置为具体分类名（除非你想叫它 rulesets）
                 local_sub = item.get('local_subdir', '') 
-                
                 dest_dir = DIR_TXT / local_sub
                 dest_dir.mkdir(parents=True, exist_ok=True)
 
                 with tempfile.TemporaryDirectory() as temp_dir:
-                    # 1. Git 拉取
+                    # Git 稀疏拉取
                     subprocess.run(["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, temp_dir],
                                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
                     subprocess.run(["git", "sparse-checkout", "set", remote_tgt],
@@ -174,21 +156,29 @@ def run_sync_phase():
                     
                     full_remote_path = Path(temp_dir) / remote_tgt
 
-                    # 2. 复制内容到目标 (不管里面结构多乱，先全部拷过去)
+                    # 复制文件并刷新时间戳
                     if full_remote_path.is_dir():
-                        shutil.copytree(full_remote_path, dest_dir, dirs_exist_ok=True)
+                        # 遍历复制以便控制每个文件的时间戳
+                        for src_file in full_remote_path.rglob("*"):
+                            if src_file.is_file():
+                                rel = src_file.relative_to(full_remote_path)
+                                dst = dest_dir / rel
+                                dst.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(src_file, dst)
+                                touch_file(dst) # ➤ 强制刷新时间戳为现在！
                     elif full_remote_path.is_file():
                         shutil.copy2(full_remote_path, dest_dir)
+                        touch_file(dest_dir / full_remote_path.name) # ➤ 强制刷新时间戳
                     else:
                         raise FileNotFoundError(f"远程路径不存在: {remote_tgt}")
                 
-                # ➤➤➤ 步骤 3: 暴力扁平化处理 (The Flatten Strategy) ➤➤➤
-                flatten_directory(dest_dir) 
+                # 暴力去除 rulesets
+                flatten_directory(dest_dir)
                 
                 stats.sync_success += 1
-                sync_table.add_row(name, f"已清理至 {local_sub if local_sub else '根目录'}", "[green]OK[/green]")
+                sync_table.add_row(name, "[green]OK[/green]")
             except Exception as e:
-                sync_table.add_row(name, str(e), "[red]FAIL[/red]")
+                sync_table.add_row(name, "[red]FAIL[/red]")
                 handle_error(f"同步 [{name}]", e)
 
     console.print(sync_table)
@@ -198,27 +188,25 @@ def compile_file_worker(args):
     if not file_path.name.lower().endswith(('.txt', '.list', '.yaml', '.conf', '.json', '')):
         return None
 
-    # 内容清洗
-    raw_rules = set()
+    # 读取与清洗
+    rules = set()
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
                 c = line.split('#')[0].split('//')[0].strip()
                 if not c or c.startswith("payload:") or "repo" in c: continue
                 c = c.replace("'", "").replace('"', "").replace(",", "").lstrip("-").strip()
-                if c: raw_rules.add(c)
+                if c: rules.add(c)
     except:
         return None
     
-    if not raw_rules: return None
-    rules_list = list(raw_rules)
+    if not rules: return None
+    rules_list = list(rules)
 
     # 识别类型
     fname = file_path.name.lower()
-    if "ip" in fname and "domain" not in fname: 
-        rtype = "ip_cidr"
-    elif "domain" in fname or "site" in fname:
-        rtype = "domain_suffix"
+    if "ip" in fname and "domain" not in fname: rtype = "ip_cidr"
+    elif "domain" in fname or "site" in fname: rtype = "domain_suffix"
     else:
         sample = rules_list[:10]
         ip_cnt = sum(1 for x in sample if re.match(r'^\d+\.|:', x))
@@ -235,8 +223,7 @@ def compile_file_worker(args):
 
     if not final_rules: return None
 
-    # 输出路径: 此时 rules-txt 结构已经是平整的了，所以直接用 rel_path 即可
-    # 但为了以防万一，还是保留去 rulesets 的逻辑
+    # 路径清理 (以防万一还有 rulesets)
     path_parts = rel_path.parts
     if path_parts[0] in ["rulesets", "ruleset"]:
         clean_rel_path = Path(*path_parts[1:]) 
@@ -261,29 +248,27 @@ def compile_file_worker(args):
     if res.returncode != 0:
         raise RuntimeError(f"{file_path.name}: {res.stderr.strip()}")
 
+    # 刷新生成文件的时间戳
+    touch_file(json_path)
+    touch_file(srs_path)
+
     return (file_path.name, rtype, len(final_rules))
 
 def run_build_phase():
     console.rule("[bold blue]阶段 3: 编译 (.srs)[/bold blue]")
-
     files = [(p, p.relative_to(DIR_TXT)) for p in DIR_TXT.rglob("*") if p.is_file()]
+    
     if not files:
         console.print("[yellow]⚠️ 没有文件需要编译[/yellow]")
         return
 
     with Progress(
-        SpinnerColumn(),
-        TextColumn("[bold blue]{task.description}"), 
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        console=console
+        SpinnerColumn(), TextColumn("[bold blue]{task.description}"), 
+        BarColumn(), TaskProgressColumn(), TimeElapsedColumn(), console=console
     ) as progress:
         task = progress.add_task("[cyan]正在编译...", total=len(files))
-        
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(compile_file_worker, f): f for f in files}
-            
             for future in as_completed(futures):
                 try:
                     res = future.result()
@@ -298,7 +283,7 @@ def run_build_phase():
                     progress.stop()
                     handle_error("编译文件", e)
 
-    msg = f"[bold]编译成功[/bold]: [green]{stats.compile_success}[/green]\n[bold]规则总数[/bold]: [cyan]{stats.total_rules:,}[/cyan]\n[bold]输出目录[/bold]: {DIR_SRS}"
+    msg = f"[bold]编译成功[/bold]: [green]{stats.compile_success}[/green]\n[bold]规则总数[/bold]: [cyan]{stats.total_rules:,}[/cyan]"
     console.print(Panel(msg, title="🔨 编译阶段总结", border_style="green", expand=False))
 
 def main():
