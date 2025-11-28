@@ -9,7 +9,9 @@ import subprocess
 from datetime import timedelta
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Set, Optional, Tuple
 
+# --- 尝试导入 Rich 库 ---
 try:
     from rich.console import Console
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
@@ -20,7 +22,7 @@ except ImportError:
     print("Error: Please install rich (pip install rich)")
     sys.exit(1)
 
-# 全局配置
+# --- 全局配置 ---
 console = Console(record=True)
 ROOT_DIR = Path.cwd()
 CONFIG_FILE = ROOT_DIR / "repos.json"
@@ -29,10 +31,13 @@ DIR_JSON = ROOT_DIR / "rules-json"
 DIR_SRS = ROOT_DIR / "rules-srs"
 MAX_WORKERS = 4
 
+# 需要强制扁平化的目录名
+FLATTEN_TARGETS = {"rulesets", "ruleset"}
+
 # 正则：匹配合法 IP
 REGEX_IP = re.compile(r'^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/\d+)?)|(?:.*:.*)$')
 
-# 统计类
+# --- 统计类 ---
 class WorkflowStats:
     def __init__(self):
         self.start_time = time.time()
@@ -41,11 +46,11 @@ class WorkflowStats:
         self.compile_success = 0
         self.compile_fail = 0
         self.total_rules = 0
-        self.details = [] 
+        self.details: List[Tuple[str, str, int]] = [] 
         self.status = "✅ 成功"
 
     @property
-    def duration(self):
+    def duration(self) -> str:
         return str(timedelta(seconds=int(time.time() - self.start_time)))
 
 stats = WorkflowStats()
@@ -53,7 +58,19 @@ stats = WorkflowStats()
 # --- 辅助函数 ---
 
 def write_github_summary():
+    """生成 GitHub Actions 摘要"""
     if "GITHUB_STEP_SUMMARY" not in os.environ: return
+    
+    # 按照规则数量倒序
+    sorted_details = sorted(stats.details, key=lambda x: x[2], reverse=True)[:20]
+    
+    rows = []
+    for name, rtype, count in sorted_details:
+        icon = "🌐" if rtype == "domain_suffix" else "📡"
+        rows.append(f"| {name} | {icon} `{rtype}` | {count:,} |")
+    
+    table_content = "\n".join(rows)
+    
     md_content = f"""
 # 🚀 构建报告: {stats.status}
 
@@ -64,35 +81,27 @@ def write_github_summary():
 | 🔨 编译文件 | {stats.compile_success} (失败: {stats.compile_fail}) |
 | 📊 规则总条数 | **{stats.total_rules:,}** |
 
-### 📂 Top 20 文件
+### 📂 Top 20 文件 (按规则数)
 | 文件名 | 类型 | 规则数 |
 | :--- | :--- | :---: |
+{table_content}
 """
-    sorted_details = sorted(stats.details, key=lambda x: x[2], reverse=True)[:20]
-    for name, rtype, count in sorted_details:
-        icon = "🌐" if rtype == "domain_suffix" else "📡"
-        md_content += f"| {name} | {icon} `{rtype}` | {count:,} |\n"
-    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f: f.write(md_content)
+    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f: 
+        f.write(md_content)
 
-def handle_error(phase, error_msg):
+def handle_error(phase: str, error_msg: Exception | str):
+    """统一错误处理：打印红色面板并退出"""
     stats.status = f"❌ 失败于 {phase}"
     console.print(f"\n[bold red]⛔ 致命错误 - {phase}[/bold red]")
     console.print(Panel(str(error_msg), style="red"))
     write_github_summary()
     sys.exit(1)
 
-def touch_file(path_obj):
-    """强制更新文件的时间戳为当前时间"""
-    try:
-        os.utime(path_obj, None)
-    except:
-        pass
-
-def flatten_directory(target_dir):
-    """暴力去除 rulesets 层级"""
-    problematic_names = ["rulesets", "ruleset"]
+def flatten_directory(target_dir: Path):
+    """暴力去除多余层级 (如 rulesets)"""
+    # 转换为 list 避免迭代时修改目录结构的冲突
     for item in list(target_dir.iterdir()): 
-        if item.is_dir() and item.name.lower() in problematic_names:
+        if item.is_dir() and item.name.lower() in FLATTEN_TARGETS:
             # 移动内容到外层
             for sub_item in item.iterdir():
                 dst_path = target_dir / sub_item.name
@@ -100,9 +109,35 @@ def flatten_directory(target_dir):
                     if dst_path.is_dir(): shutil.rmtree(dst_path)
                     else: dst_path.unlink()
                 shutil.move(str(sub_item), str(dst_path))
-                touch_file(dst_path) # 移动后刷新时间
+                dst_path.touch() # 移动后刷新时间戳
             # 删除空文件夹
             shutil.rmtree(item)
+
+def git_sparse_clone(url: str, remote_tgt: str, temp_dir: str):
+    """封装原本复杂的 Git 操作"""
+    try:
+        # 定义通用参数，减少重复代码
+        common_args = {"check": True, "stdout": subprocess.DEVNULL, "stderr": subprocess.PIPE}
+        
+        # 1. Clone (无 Blob，稀疏模式)
+        subprocess.run(
+            ["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, temp_dir],
+            **common_args
+        )
+        # 2. Sparse Set
+        subprocess.run(
+            ["git", "sparse-checkout", "set", remote_tgt],
+            cwd=temp_dir, **common_args
+        )
+        # 3. Checkout
+        subprocess.run(
+            ["git", "checkout"],
+            cwd=temp_dir, **common_args
+        )
+    except subprocess.CalledProcessError as e:
+        # 解码错误信息，方便调试
+        err_msg = e.stderr.decode().strip() if e.stderr else "Unknown Git Error"
+        raise RuntimeError(f"Git Error: {err_msg}")
 
 # --- 核心逻辑 ---
 
@@ -114,9 +149,9 @@ def init_workspace():
     for d in dirs:
         if d.exists():
             console.print(f"[dim]  🔥 正在焚毁旧目录: {d.name}...[/dim]")
-            shutil.rmtree(d) # 彻底删除文件夹及其内容
+            shutil.rmtree(d)
         
-        d.mkdir(parents=True) # 重建空目录
+        d.mkdir(parents=True)
         console.print(f"[green]  ✅ 已重建空目录: {d.name}[/green]")
     print()
 
@@ -142,33 +177,28 @@ def run_sync_phase():
                 url = item.get('url')
                 remote_tgt = item.get('remote_path')
                 local_sub = item.get('local_subdir', '') 
+                
                 dest_dir = DIR_TXT / local_sub
                 dest_dir.mkdir(parents=True, exist_ok=True)
 
                 with tempfile.TemporaryDirectory() as temp_dir:
-                    # Git 稀疏拉取
-                    subprocess.run(["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, temp_dir],
-                                   check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-                    subprocess.run(["git", "sparse-checkout", "set", remote_tgt],
-                                   cwd=temp_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-                    subprocess.run(["git", "checkout"],
-                                   cwd=temp_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                    # 调用封装好的 Git 函数
+                    git_sparse_clone(url, remote_tgt, temp_dir)
                     
                     full_remote_path = Path(temp_dir) / remote_tgt
 
                     # 复制文件并刷新时间戳
                     if full_remote_path.is_dir():
-                        # 遍历复制以便控制每个文件的时间戳
                         for src_file in full_remote_path.rglob("*"):
                             if src_file.is_file():
                                 rel = src_file.relative_to(full_remote_path)
                                 dst = dest_dir / rel
                                 dst.parent.mkdir(parents=True, exist_ok=True)
                                 shutil.copy2(src_file, dst)
-                                touch_file(dst) # ➤ 强制刷新时间戳为现在！
+                                dst.touch() # ➤ 关键：更新时间戳为 allow "Now"
                     elif full_remote_path.is_file():
                         shutil.copy2(full_remote_path, dest_dir)
-                        touch_file(dest_dir / full_remote_path.name) # ➤ 强制刷新时间戳
+                        (dest_dir / full_remote_path.name).touch()
                     else:
                         raise FileNotFoundError(f"远程路径不存在: {remote_tgt}")
                 
@@ -183,13 +213,13 @@ def run_sync_phase():
 
     console.print(sync_table)
 
-def compile_file_worker(args):
+def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
     file_path, rel_path = args
     if not file_path.name.lower().endswith(('.txt', '.list', '.yaml', '.conf', '.json', '')):
         return None
 
     # 读取与清洗
-    rules = set()
+    rules: Set[str] = set()
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -223,9 +253,9 @@ def compile_file_worker(args):
 
     if not final_rules: return None
 
-    # 路径清理 (以防万一还有 rulesets)
+    # 路径清理 (以防万一还有 rulesets，使用全局配置)
     path_parts = rel_path.parts
-    if path_parts[0] in ["rulesets", "ruleset"]:
+    if path_parts[0] in FLATTEN_TARGETS:
         clean_rel_path = Path(*path_parts[1:]) 
     else:
         clean_rel_path = rel_path
@@ -249,8 +279,8 @@ def compile_file_worker(args):
         raise RuntimeError(f"{file_path.name}: {res.stderr.strip()}")
 
     # 刷新生成文件的时间戳
-    touch_file(json_path)
-    touch_file(srs_path)
+    json_path.touch()
+    srs_path.touch()
 
     return (file_path.name, rtype, len(final_rules))
 
