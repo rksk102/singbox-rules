@@ -1,9 +1,9 @@
-name: Rule Set Build (Pro)
+name: 1. Rule Set Build (Pro)
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 20 * * *'  # 每天北京时间早4点 (UTC 20:00)
+    - cron: '0 20 * * *'
   push:
     paths:
       - 'repos.json'
@@ -14,18 +14,20 @@ jobs:
     name: 🚀 Build Rules
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # 需要写权限来提交代码
-    timeout-minutes: 10 # 防止脚本卡死消耗额度
+      contents: write # 依然保留这个
+    timeout-minutes: 10
 
     steps:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }} # ➤➤➤ 关键修改：使用 PAT
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          cache: 'pip' # 自动缓存 pip 依赖
+          cache: 'pip'
 
       - name: 📦 Install Dependencies
         run: pip install rich
@@ -33,38 +35,22 @@ jobs:
       - name: 🛠️ Install Sing-box
         run: |
           echo "::group::Download & Install Sing-box"
-          # 1. 获取最新 release 的下载链接 (过滤出 linux-amd64.tar.gz)
           LATEST_URL=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r '.assets[] | select(.name | contains("linux-amd64.tar.gz")) | .browser_download_url')
-          
-          if [ -z "$LATEST_URL" ]; then
-            echo "❌ Failed to fetch latest sing-box URL"
-            exit 1
-          fi
-
-          echo "🔗 Downloading: $LATEST_URL"
-          
-          # 2. 下载并解压
+          if [ -z "$LATEST_URL" ]; then echo "❌ Failed to fetch sing-box URL"; exit 1; fi
           wget -qO sb.tar.gz "$LATEST_URL"
           tar -zxf sb.tar.gz
-          
-          # 3. 安装到 PATH
           sudo mv sing-box-*/sing-box /usr/local/bin/
-          sudo chmod +x /usr/local/bin/sing-box
-          
-          # 4. 清理
           rm -rf sing-box-* sb.tar.gz
-          
-          # 5. 验证
-          sing-box version
           echo "::endgroup::"
 
       - name: 🚀 Run Builder
         run: python -u src/main.py
 
       - name: 📤 Commit Results
-        if: success() # 只有 Python 脚本成功运行才提交
+        if: success()
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto: Update rules [skip ci]"
           file_pattern: "rules-txt rules-json rules-srs"
           push_options: '--force'
+          # 注意：如果在 checkout 用了 token，这里通常不需要再指定，git配置会自动继承
