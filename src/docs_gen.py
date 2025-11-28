@@ -1,7 +1,6 @@
 import os
 from datetime import datetime, timezone, timedelta
 
-# ================= 核心配置 (保持不变) =================
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 except:
@@ -16,7 +15,7 @@ BRANCH = "main"
 REPO = os.getenv("GITHUB_REPOSITORY", "rksk102/singbox-rules") 
 
 LOGO_URL = "https://sing-box.sagernet.org/assets/icon.svg"
-BADGE_WIDTH = "120" # 保持按钮宽度不变
+BADGE_WIDTH = "120"
 
 def get_beijing_time():
     utc_dt = datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -29,8 +28,6 @@ def format_size(path):
     if size < 1024: return f"{size} B"
     if size < 1024 * 1024: return f"{size/1024:.1f} KB"
     return f"{size/(1024*1024):.2f} MB"
-
-# ================= 逻辑区域 =================
 
 def get_type_badge(filename, folder=""):
     """
@@ -90,12 +87,9 @@ def generate_json_badges_vertical(repo, path):
     )
     return html
 
-# ================= 文档生成逻辑 =================
-
 def generate_markdown():
     update_time = get_beijing_time()
     lines = []
-    # 1. Header (极致精简版)
     lines.append(f"<div align='center'>")
     lines.append(f"  <a href='https://github.com/{REPO}'>")
     lines.append(f"    <img src='{LOGO_URL}' width='120' height='120' alt='Sing-box Logo'>")
@@ -108,16 +102,12 @@ def generate_markdown():
     lines.append(f"  </p>")
     lines.append(f"</div>")
     lines.append(f"")
-
-    # 2. Features
     lines.append(f"| ⚡ **极致极速** | 🔄 **实时更新** | 🛠️ **兼容性强** |")
     lines.append(f"| :---: | :---: | :---: |")
     lines.append(f"| 预编译 `.srs` 二进制格式<br>极低内存与 CPU 占用 | 每小时自动同步上游<br>时刻保持最新规则 | 提供标准 JSON 源码格式<br>方便二次开发与审计 |")
     lines.append(f"")
     lines.append(f"---")
     lines.append(f"")
-
-    # 3. Config Guide
     lines.append(f"## ⚙️ 配置指南")
     lines.append(f"")
     lines.append(f"> [!TIP]")
@@ -145,7 +135,6 @@ def generate_markdown():
     lines.append(f"")
     lines.append(f"<br>")
 
-    # Data Collection
     file_data = []
     if os.path.exists(DIR_JSON):
         for root, dirs, files in os.walk(DIR_JSON):
@@ -167,7 +156,6 @@ def generate_markdown():
                 })
         file_data.sort(key=lambda x: (x["folder"], x["name"]))
 
-    # SRS SECTION
     lines.append(f"## 🚀 SRS 二进制规则集 (推荐)")
     lines.append(f"")
     columns = f"| 规则名称 | 类型 | 大小 | <div align='center'>GitHub 源文件</div> | <div align='center'>CDN 加速下载</div> |"
@@ -190,8 +178,6 @@ def generate_markdown():
         srs_count += 1
     
     lines.append(f"")
-    
-    # JSON SECTION
     lines.append(f"## 📄 JSON 源码规则集")
     lines.append(f"")
     lines.append(columns)
@@ -210,7 +196,6 @@ def generate_markdown():
         lines.append(f"| {display_name} | {badge_type} | `{item['size_json']}` | {source_col} | {cdn_col} |")
         json_count += 1
 
-    # Footer
     lines.append(f"")
     lines.append(f"<br>")
     lines.append(f"---")
