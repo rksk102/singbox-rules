@@ -31,7 +31,7 @@ DIR_JSON = ROOT_DIR / "rules-json"
 DIR_SRS = ROOT_DIR / "rules-srs"
 MAX_WORKERS = 4
 
-# 需要强制扁平化的目录名
+# 需要强制扁平化去除的目录名
 FLATTEN_TARGETS = {"rulesets", "ruleset"}
 
 # 正则：匹配合法 IP
@@ -58,17 +58,12 @@ stats = WorkflowStats()
 # --- 辅助函数 ---
 
 def write_github_summary():
-    """生成 GitHub Actions 摘要"""
     if "GITHUB_STEP_SUMMARY" not in os.environ: return
-    
-    # 按照规则数量倒序
     sorted_details = sorted(stats.details, key=lambda x: x[2], reverse=True)[:20]
-    
     rows = []
     for name, rtype, count in sorted_details:
         icon = "🌐" if rtype == "domain_suffix" else "📡"
         rows.append(f"| {name} | {icon} `{rtype}` | {count:,} |")
-    
     table_content = "\n".join(rows)
     
     md_content = f"""
@@ -81,16 +76,14 @@ def write_github_summary():
 | 🔨 编译文件 | {stats.compile_success} (失败: {stats.compile_fail}) |
 | 📊 规则总条数 | **{stats.total_rules:,}** |
 
-### 📂 Top 20 文件 (按规则数)
+### 📂 Top 20 文件
 | 文件名 | 类型 | 规则数 |
 | :--- | :--- | :---: |
 {table_content}
 """
-    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f: 
-        f.write(md_content)
+    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f: f.write(md_content)
 
 def handle_error(phase: str, error_msg: Exception | str):
-    """统一错误处理：打印红色面板并退出"""
     stats.status = f"❌ 失败于 {phase}"
     console.print(f"\n[bold red]⛔ 致命错误 - {phase}[/bold red]")
     console.print(Panel(str(error_msg), style="red"))
@@ -99,58 +92,35 @@ def handle_error(phase: str, error_msg: Exception | str):
 
 def flatten_directory(target_dir: Path):
     """暴力去除多余层级 (如 rulesets)"""
-    # 转换为 list 避免迭代时修改目录结构的冲突
     for item in list(target_dir.iterdir()): 
         if item.is_dir() and item.name.lower() in FLATTEN_TARGETS:
-            # 移动内容到外层
             for sub_item in item.iterdir():
                 dst_path = target_dir / sub_item.name
                 if dst_path.exists():
                     if dst_path.is_dir(): shutil.rmtree(dst_path)
                     else: dst_path.unlink()
                 shutil.move(str(sub_item), str(dst_path))
-                dst_path.touch() # 移动后刷新时间戳
-            # 删除空文件夹
+                dst_path.touch()
             shutil.rmtree(item)
 
 def git_sparse_clone(url: str, remote_tgt: str, temp_dir: str):
-    """封装原本复杂的 Git 操作"""
     try:
-        # 定义通用参数，减少重复代码
         common_args = {"check": True, "stdout": subprocess.DEVNULL, "stderr": subprocess.PIPE}
-        
-        # 1. Clone (无 Blob，稀疏模式)
-        subprocess.run(
-            ["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, temp_dir],
-            **common_args
-        )
-        # 2. Sparse Set
-        subprocess.run(
-            ["git", "sparse-checkout", "set", remote_tgt],
-            cwd=temp_dir, **common_args
-        )
-        # 3. Checkout
-        subprocess.run(
-            ["git", "checkout"],
-            cwd=temp_dir, **common_args
-        )
+        subprocess.run(["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, temp_dir], **common_args)
+        subprocess.run(["git", "sparse-checkout", "set", remote_tgt], cwd=temp_dir, **common_args)
+        subprocess.run(["git", "checkout"], cwd=temp_dir, **common_args)
     except subprocess.CalledProcessError as e:
-        # 解码错误信息，方便调试
-        err_msg = e.stderr.decode().strip() if e.stderr else "Unknown Git Error"
-        raise RuntimeError(f"Git Error: {err_msg}")
+        raise RuntimeError(f"Git Error: {e.stderr.decode().strip()}")
 
 # --- 核心逻辑 ---
 
 def init_workspace():
-    """彻底清洗所有工作目录"""
     console.rule("[bold blue]阶段 1: 暴力清理旧文件[/bold blue]")
     dirs = [DIR_TXT, DIR_JSON, DIR_SRS]
-    
     for d in dirs:
         if d.exists():
-            console.print(f"[dim]  🔥 正在焚毁旧目录: {d.name}...[/dim]")
+            console.print(f"[dim]  🔥 正在焚毁旧目录用: {d.name}...[/dim]")
             shutil.rmtree(d)
-        
         d.mkdir(parents=True)
         console.print(f"[green]  ✅ 已重建空目录: {d.name}[/green]")
     print()
@@ -177,17 +147,13 @@ def run_sync_phase():
                 url = item.get('url')
                 remote_tgt = item.get('remote_path')
                 local_sub = item.get('local_subdir', '') 
-                
                 dest_dir = DIR_TXT / local_sub
                 dest_dir.mkdir(parents=True, exist_ok=True)
 
                 with tempfile.TemporaryDirectory() as temp_dir:
-                    # 调用封装好的 Git 函数
                     git_sparse_clone(url, remote_tgt, temp_dir)
-                    
                     full_remote_path = Path(temp_dir) / remote_tgt
 
-                    # 复制文件并刷新时间戳
                     if full_remote_path.is_dir():
                         for src_file in full_remote_path.rglob("*"):
                             if src_file.is_file():
@@ -195,22 +161,19 @@ def run_sync_phase():
                                 dst = dest_dir / rel
                                 dst.parent.mkdir(parents=True, exist_ok=True)
                                 shutil.copy2(src_file, dst)
-                                dst.touch() # ➤ 关键：更新时间戳为 allow "Now"
+                                dst.touch()
                     elif full_remote_path.is_file():
                         shutil.copy2(full_remote_path, dest_dir)
                         (dest_dir / full_remote_path.name).touch()
                     else:
                         raise FileNotFoundError(f"远程路径不存在: {remote_tgt}")
                 
-                # 暴力去除 rulesets
                 flatten_directory(dest_dir)
-                
                 stats.sync_success += 1
                 sync_table.add_row(name, "[green]OK[/green]")
             except Exception as e:
                 sync_table.add_row(name, "[red]FAIL[/red]")
                 handle_error(f"同步 [{name}]", e)
-
     console.print(sync_table)
 
 def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
@@ -218,7 +181,6 @@ def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
     if not file_path.name.lower().endswith(('.txt', '.list', '.yaml', '.conf', '.json', '')):
         return None
 
-    # 读取与清洗
     rules: Set[str] = set()
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -233,7 +195,6 @@ def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
     if not rules: return None
     rules_list = list(rules)
 
-    # 识别类型
     fname = file_path.name.lower()
     if "ip" in fname and "domain" not in fname: rtype = "ip_cidr"
     elif "domain" in fname or "site" in fname: rtype = "domain_suffix"
@@ -242,7 +203,6 @@ def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
         ip_cnt = sum(1 for x in sample if re.match(r'^\d+\.|:', x))
         rtype = "ip_cidr" if ip_cnt > len(sample)/2 else "domain_suffix"
 
-    # 脏数据过滤
     final_rules = []
     if rtype == "ip_cidr":
         for r in rules_list:
@@ -250,13 +210,12 @@ def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
                 final_rules.append(r)
     else:
         final_rules = rules_list
-    
-    # 对规则进行排序，防止 JSON 顺序乱跳
+
+    # ➤➤➤ 关键修复：必须排序，否则 JSON 每次顺序不同，Git 会一直认为文件有更新
     final_rules.sort()
 
     if not final_rules: return None
 
-    # 路径清理 (以防万一还有 rulesets，使用全局配置)
     path_parts = rel_path.parts
     if path_parts[0] in FLATTEN_TARGETS:
         clean_rel_path = Path(*path_parts[1:]) 
@@ -281,7 +240,6 @@ def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
     if res.returncode != 0:
         raise RuntimeError(f"{file_path.name}: {res.stderr.strip()}")
 
-    # 刷新生成文件的时间戳
     json_path.touch()
     srs_path.touch()
 
@@ -290,7 +248,6 @@ def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
 def run_build_phase():
     console.rule("[bold blue]阶段 3: 编译 (.srs)[/bold blue]")
     files = [(p, p.relative_to(DIR_TXT)) for p in DIR_TXT.rglob("*") if p.is_file()]
-    
     if not files:
         console.print("[yellow]⚠️ 没有文件需要编译[/yellow]")
         return
