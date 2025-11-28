@@ -15,7 +15,7 @@ def check_time_trigger(trigger_hours):
     如果 trigger_hours 为空或 None，返回 None (代表跟随模式)
     """
     if not trigger_hours:
-        return None # Follow mode
+        return None
     
     current_hour = get_current_utc_hour()
     if current_hour in trigger_hours:
@@ -56,10 +56,6 @@ def run_orchestration():
         filename = task['filename']
         wait = task.get('wait', False)
         trigger_hours = task.get('trigger_hours', [])
-
-        # --- 核心调度逻辑 ---
-        
-        # 1. 检查是否是“发令枪”任务 (配置了时间)
         time_check = check_time_trigger(trigger_hours)
 
         if time_check is True:
@@ -69,11 +65,9 @@ def run_orchestration():
             if not is_manual_run:
                 print(f"zzz 休眠中: {name} (计划运行: UTC {trigger_hours}, 当前: {current_hour})")
                 chain_active = False
-        # 2. 决定是否运行
         if not chain_active:
             continue
 
-        # 3. 执行任务
         print(f"\n▶ [启动] {name} ({filename})...")
         try:
             subprocess.run(["gh", "workflow", "run", filename], check=True)
@@ -91,7 +85,7 @@ def run_orchestration():
                     print(f"  ✅ {name} 成功完成")
                 except:
                     print(f"  ❌ {name} 失败！停止后续流程。")
-                    exit(1) # 链条断裂
+                    exit(1)
             else:
                 print("  ⚠️ 无法监控状态，继续...")
         else:
