@@ -211,7 +211,6 @@ def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
     else:
         final_rules = rules_list
 
-    # ➤➤➤ 关键修复：必须排序，否则 JSON 每次顺序不同，Git 会一直认为文件有更新
     final_rules.sort()
 
     if not final_rules: return None
