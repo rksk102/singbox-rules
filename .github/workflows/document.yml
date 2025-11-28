@@ -1,4 +1,4 @@
-name: 2. 🛡️Update Documentation
+name: 2. Update Documentation
 
 on:
   workflow_dispatch: # 手动触发
