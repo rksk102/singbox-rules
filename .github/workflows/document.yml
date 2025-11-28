@@ -21,7 +21,6 @@ jobs:
       - name: Generate README
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
-
         run: python src/docs_gen.py
 
       - name: Commit README
