@@ -86,6 +86,34 @@ def handle_error(phase, error_msg):
     write_github_summary()
     sys.exit(1)
 
+def flatten_directory(target_dir):
+    """
+    暴力平铺：
+    如果 target_dir 下面有名为 rulesets 或 ruleset 的文件夹，
+    将里面的内容全部移动到 target_dir，并删除该文件夹。
+    """
+    problematic_names = ["rulesets", "ruleset"]
+    
+    # 遍历当前目录下的所有子项
+    # 使用 list() 是因为我们在迭代过程中可能会修改目录结构
+    for item in list(target_dir.iterdir()): 
+        if item.is_dir() and item.name.lower() in problematic_names:
+            console.print(f"[dim]  🧹 正在移除多余层级: {item.name}...[/dim]")
+            
+            # 移动子文件/文件夹到上一层 (target_dir)
+            for sub_item in item.iterdir():
+                dst_path = target_dir / sub_item.name
+                
+                # 如果目标存在，先删除目标（覆盖模式）
+                if dst_path.exists():
+                    if dst_path.is_dir(): shutil.rmtree(dst_path)
+                    else: dst_path.unlink()
+                
+                shutil.move(str(sub_item), str(dst_path))
+            
+            # 删掉那个空的 rulesets 文件夹
+            shutil.rmtree(item)
+
 # --- 核心逻辑 ---
 
 def init_workspace():
@@ -94,10 +122,14 @@ def init_workspace():
         dirs = [DIR_TXT, DIR_JSON, DIR_SRS]
         created = []
         for d in dirs:
-            if d.exists(): shutil.rmtree(d)
+            # 1. 强制清理：如果存在，直接删掉整个文件夹
+            if d.exists(): 
+                shutil.rmtree(d)
+                console.print(f"[dim]  🗑️  已删除旧目录: {d.name}[/dim]")
+            # 2. 重新创建
             d.mkdir(parents=True)
             created.append(d.name)
-        console.print(f"[green]✅ 已重置目录: {', '.join(created)}[/green]")
+        console.print(f"[green]✅ 工作区准备就绪[/green]")
     except Exception as e:
         handle_error("初始化", e)
 
@@ -116,7 +148,7 @@ def run_sync_phase():
 
     sync_table = Table(box=box.SIMPLE_HEAD)
     sync_table.add_column("仓库", style="cyan")
-    sync_table.add_column("重定向路径", style="dim")
+    sync_table.add_column("修正操作", style="dim")
     sync_table.add_column("状态", justify="right")
 
     for item in repo_list:
@@ -125,14 +157,14 @@ def run_sync_phase():
             try:
                 url = item.get('url')
                 remote_tgt = item.get('remote_path')
-                # 默认 local_subdir 为空，即直接放在 rules-txt 根目录，除非配置里指定了
+                # 建议 local_subdir 让用户留空，或者设置为具体分类名（除非你想叫它 rulesets）
                 local_sub = item.get('local_subdir', '') 
                 
                 dest_dir = DIR_TXT / local_sub
                 dest_dir.mkdir(parents=True, exist_ok=True)
 
                 with tempfile.TemporaryDirectory() as temp_dir:
-                    # git 稀疏拉取
+                    # 1. Git 拉取
                     subprocess.run(["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, temp_dir],
                                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
                     subprocess.run(["git", "sparse-checkout", "set", remote_tgt],
@@ -142,19 +174,7 @@ def run_sync_phase():
                     
                     full_remote_path = Path(temp_dir) / remote_tgt
 
-                    # ➤➤➤ 修复逻辑：强制去 rulesets 层级 ➤➤➤
-                    # 不管旁边有没有 README，只要发现有 rulesets 文件夹，就进去
-                    msg_extra = ""
-                    if full_remote_path.is_dir():
-                        candidates = ["rulesets", "ruleset"]
-                        for cand in candidates:
-                            potential_path = full_remote_path / cand
-                            if potential_path.exists() and potential_path.is_dir():
-                                full_remote_path = potential_path
-                                msg_extra = f"(已去除 {cand})"
-                                break
-                    # ◀◀◀ 修复结束 ◀◀◀
-
+                    # 2. 复制内容到目标 (不管里面结构多乱，先全部拷过去)
                     if full_remote_path.is_dir():
                         shutil.copytree(full_remote_path, dest_dir, dirs_exist_ok=True)
                     elif full_remote_path.is_file():
@@ -162,8 +182,11 @@ def run_sync_phase():
                     else:
                         raise FileNotFoundError(f"远程路径不存在: {remote_tgt}")
                 
+                # ➤➤➤ 步骤 3: 暴力扁平化处理 (The Flatten Strategy) ➤➤➤
+                flatten_directory(dest_dir) 
+                
                 stats.sync_success += 1
-                sync_table.add_row(name, f"{remote_tgt} {msg_extra}", "[green]OK[/green]")
+                sync_table.add_row(name, f"已清理至 {local_sub if local_sub else '根目录'}", "[green]OK[/green]")
             except Exception as e:
                 sync_table.add_row(name, str(e), "[red]FAIL[/red]")
                 handle_error(f"同步 [{name}]", e)
@@ -171,14 +194,11 @@ def run_sync_phase():
     console.print(sync_table)
 
 def compile_file_worker(args):
-    """
-    编译逻辑：包含路径清洗和内容清洗
-    """
     file_path, rel_path = args
     if not file_path.name.lower().endswith(('.txt', '.list', '.yaml', '.conf', '.json', '')):
         return None
 
-    # 1. 严格清洗内容
+    # 内容清洗
     raw_rules = set()
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -193,7 +213,7 @@ def compile_file_worker(args):
     if not raw_rules: return None
     rules_list = list(raw_rules)
 
-    # 2. 识别类型
+    # 识别类型
     fname = file_path.name.lower()
     if "ip" in fname and "domain" not in fname: 
         rtype = "ip_cidr"
@@ -204,7 +224,7 @@ def compile_file_worker(args):
         ip_cnt = sum(1 for x in sample if re.match(r'^\d+\.|:', x))
         rtype = "ip_cidr" if ip_cnt > len(sample)/2 else "domain_suffix"
 
-    # 3. 严格过滤脏数据 (包含 arpa 的不可能是 ip_cidr)
+    # 脏数据过滤
     final_rules = []
     if rtype == "ip_cidr":
         for r in rules_list:
@@ -215,10 +235,10 @@ def compile_file_worker(args):
 
     if not final_rules: return None
 
-    # 4. 路径二次清洗：确保输出文件名里不带 rulesets
+    # 输出路径: 此时 rules-txt 结构已经是平整的了，所以直接用 rel_path 即可
+    # 但为了以防万一，还是保留去 rulesets 的逻辑
     path_parts = rel_path.parts
-    # 如果通过 sync 拿到的文件，第一层还是 rulesets，这里强制切除
-    if len(path_parts) > 1 and path_parts[0] in ["rulesets", "ruleset"]:
+    if path_parts[0] in ["rulesets", "ruleset"]:
         clean_rel_path = Path(*path_parts[1:]) 
     else:
         clean_rel_path = rel_path
@@ -231,7 +251,6 @@ def compile_file_worker(args):
     json_path = out_dir_json / f"{file_path.stem}.json"
     srs_path = out_dir_srs / f"{file_path.stem}.srs"
     
-    # 写入 & 编译
     data = {"version": 1, "rules": [{rtype: final_rules}]}
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
