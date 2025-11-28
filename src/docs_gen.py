@@ -14,7 +14,7 @@ DIR_SRS = os.path.join(PROJECT_ROOT, "rules-srs")
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "README.md")
 BRANCH = "main"
 REPO = os.getenv("GITHUB_REPOSITORY", "rksk102/singbox-rules") 
-WORKFLOW_FILE = "build.yml" 
+WORKFLOW_FILE = "document.yml" 
 LOGO_URL = "https://sing-box.sagernet.org/assets/icon.svg"
 BADGE_WIDTH = "120" 
 
