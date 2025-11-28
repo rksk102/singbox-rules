@@ -3,13 +3,12 @@ name: Orchestrator (Master Controller)
 on:
   schedule:
     - cron: '0 * * * *'
-  workflow_dispatch: # 也可以手动按按钮启动全套流程
+  workflow_dispatch:
 
 jobs:
   command_center:
     runs-on: ubuntu-latest
     permissions:
-      # 必须赋予 actions: write 权限，否则无法触发其他工作流
       actions: write
       contents: read
 
@@ -24,7 +23,6 @@ jobs:
 
       - name: Run Orchestrator
         env:
-          # 必须传入 GITHUB_TOKEN，这样 gh 命令才有权操作
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python src/orchestrator.py
