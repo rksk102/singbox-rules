@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone, timedelta
 
-# ================= 核心配置 (Configuration) =================
+# ================= 核心配置 (保持不变) =================
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 except:
@@ -14,9 +14,9 @@ DIR_SRS = os.path.join(PROJECT_ROOT, "rules-srs")
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "README.md")
 BRANCH = "main"
 REPO = os.getenv("GITHUB_REPOSITORY", "rksk102/singbox-rules") 
-WORKFLOW_FILE = "document.yml" 
+
 LOGO_URL = "https://sing-box.sagernet.org/assets/icon.svg"
-BADGE_WIDTH = "120" 
+BADGE_WIDTH = "120" # 保持按钮宽度不变
 
 def get_beijing_time():
     utc_dt = datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -34,7 +34,7 @@ def format_size(path):
 
 def get_type_badge(filename, folder=""):
     """
-    类型判定逻辑：包含了 folder 判断，解决 lancidr 识别问题
+    类型判定逻辑：包含了 folder 判断
     """
     fname = filename.lower()
     fpath = folder.lower()
@@ -94,11 +94,8 @@ def generate_json_badges_vertical(repo, path):
 
 def generate_markdown():
     update_time = get_beijing_time()
-    badge_build = f"https://img.shields.io/github/actions/workflow/status/{REPO}/{WORKFLOW_FILE}?style=flat-square&logo=github&label=构建状态"
-    badge_stars = f"https://img.shields.io/github/stars/{REPO}?style=flat-square&logo=github&color=yellow&label=Stars"
-    
     lines = []
-    # 1. Header
+    # 1. Header (极致精简版)
     lines.append(f"<div align='center'>")
     lines.append(f"  <a href='https://github.com/{REPO}'>")
     lines.append(f"    <img src='{LOGO_URL}' width='120' height='120' alt='Sing-box Logo'>")
@@ -108,10 +105,6 @@ def generate_markdown():
     lines.append(f"    🚀 <strong>自动构建</strong> &middot; ")
     lines.append(f"    🌍 <strong>全球加速</strong> &middot; ")
     lines.append(f"    📦 <strong>格式优化</strong>")
-    lines.append(f"  </p>")
-    lines.append(f"  <p>")
-    lines.append(f"    <img src='{badge_build}' alt='Build'>")
-    lines.append(f"    <img src='{badge_stars}' alt='Stars'>")
     lines.append(f"  </p>")
     lines.append(f"</div>")
     lines.append(f"")
@@ -233,7 +226,7 @@ def generate_markdown():
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        print(f"✅ README 更新成功: 已修复图片错误 (请确认 WORKFLOW_FILE 是否正确)")
+        print(f"✅ README 更新成功: 已移除所有顶部徽章。")
     except Exception as e:
         print(f"❌ Error: {e}")
 
