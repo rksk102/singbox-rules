@@ -16,6 +16,9 @@ BRANCH = "main"
 REPO = os.getenv("GITHUB_REPOSITORY", "rksk102/singbox-rules") 
 
 LOGO_URL = "https://sing-box.sagernet.org/assets/icon.svg"
+
+# 统一按钮宽度设定 (像素)
+BADGE_WIDTH = "120"
 # ===========================================
 
 def get_beijing_time():
@@ -42,42 +45,33 @@ def get_type_badge(filename):
 
 def generate_source_badge(repo, path):
     """
-    第4列：GitHub 源文件 - 这里的按钮也设置固定宽度
+    第4列：GitHub 源文件
     """
     url = f"https://github.com/{repo}/blob/{BRANCH}/{path}"
-    # 黑色徽章
     img = "https://img.shields.io/badge/View_Source-181717?style=flat-square&logo=github"
-    # width='120' 稍微比下载按钮短一点，区分主次
-    return f"<div align='center'><a href='{url}'><img src='{img}' width='120' alt='Source'></a></div>"
+    # 使用统一宽度
+    return f"<div align='center'><a href='{url}'><img src='{img}' width='{BADGE_WIDTH}' alt='Source'></a></div>"
 
 def generate_cdn_badges_vertical(repo, path):
     """
     第5列：垂直排列的等宽下载按钮
     """
-    # 1. 定义 URLs
     url_ghproxy = f"https://ghproxy.net/https://raw.githubusercontent.com/{repo}/{BRANCH}/{path}"
     url_kgithub = f"https://raw.kgithub.com/{repo}/{BRANCH}/{path}"
     url_jsdelivr = f"https://cdn.jsdelivr.net/gh/{repo}@{BRANCH}/{path}"
 
-    # 2. 定义徽章图片
-    # 为了保证美观，Label 建议统一，例如都叫 Install 或 Download
     img_gh = "https://img.shields.io/badge/Install-GhProxy-2ecc71?style=flat-square&logo=rocket"
     img_kg = "https://img.shields.io/badge/Install-KGitHub-orange?style=flat-square&logo=thunder"
     img_js = "https://img.shields.io/badge/Install-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white"
 
-    # 3. 样式控制
-    # width="160" 是核心：强制拉伸图片到 160px 宽，实现“一样长”
-    # margin-bottom: 5px 实现垂直间距
-    btn_style = "width='160'" 
-    div_style = "margin-bottom: 6px;" 
+    # 样式：统一宽度 + 垂直间距
+    btn_style = f"width='{BADGE_WIDTH}'" 
+    div_style = "margin-bottom: 5px;" 
 
     html = (
         f"<div align='center'>"
-        # 按钮 1
         f"<div style='{div_style}'><a href='{url_ghproxy}'><img src='{img_gh}' {btn_style}></a></div>"
-        # 按钮 2
         f"<div style='{div_style}'><a href='{url_kgithub}'><img src='{img_kg}' {btn_style}></a></div>"
-        # 按钮 3 (最后一个不需要底部边距，但为了统一加上也无妨，或者去掉)
         f"<div><a href='{url_jsdelivr}'><img src='{img_js}' {btn_style}></a></div>"
         f"</div>"
     )
@@ -93,8 +87,8 @@ def generate_json_badges_vertical(repo, path):
     img_k = "https://img.shields.io/badge/Mirror-KGitHub-orange?style=flat-square&logo=thunder"
     img_j = "https://img.shields.io/badge/Mirror-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white"
 
-    btn_style = "width='160'" 
-    div_style = "margin-bottom: 6px;" 
+    btn_style = f"width='{BADGE_WIDTH}'" 
+    div_style = "margin-bottom: 5px;" 
     
     html = (
         f"<div align='center'>"
@@ -176,6 +170,8 @@ def generate_markdown():
     lines.append(f"## 🚀 SRS Binary Rules")
     lines.append(f"> Recommended for Sing-box. Optimized binary format.")
     lines.append(f"")
+    
+    # 表头
     columns = f"| Rule Name | Type | Size | <div align='center'>GitHub Source</div> | <div align='center'>CDN Downloads</div> |"
     lines.append(columns)
     lines.append(f"| :--- | :---: | :---: | :---: | :---: |")
@@ -184,18 +180,17 @@ def generate_markdown():
     for item in file_data:
         if not item["has_srs"]: continue
         
+        # 优化 Rule Name 显示逻辑
         if item["folder"]:
-            display_name = f"**{item['folder']}** / `{item['name']}`"
+            # 📂 图标 + 小字号灰色路径 + 粗体文件名
+            display_name = f"<span style='font-size:11px;color:#95a5a6'>📂 {item['folder']} /</span> <b>{item['name']}</b>"
         else:
-            display_name = f"`{item['name']}`"
+            display_name = f"<b>{item['name']}</b>"
         
         badge_type = get_type_badge(item["name"])
         size = f"`{item['size_srs']}`"
         
-        # Col 4: Source (固定宽度 120px)
         source_col = generate_source_badge(REPO, item["p_json"])
-        
-        # Col 5: CDN (固定宽度 160px, 垂直堆叠)
         cdn_col = generate_cdn_badges_vertical(REPO, item["p_srs"])
 
         lines.append(f"| {display_name} | {badge_type} | {size} | {source_col} | {cdn_col} |")
@@ -205,15 +200,16 @@ def generate_markdown():
     
     # ================= JSON SECTION =================
     lines.append(f"## 📄 JSON Source Rules")
-    lines.append(columns) # Use same header style
+    lines.append(columns) 
     lines.append(f"| :--- | :---: | :---: | :---: | :---: |")
 
     json_count = 0
     for item in file_data:
+        # Rule Name 逻辑一致
         if item["folder"]:
-            display_name = f"**{item['folder']}** / `{item['name']}`"
+            display_name = f"<span style='font-size:11px;color:#95a5a6'>📂 {item['folder']} /</span> <b>{item['name']}</b>"
         else:
-            display_name = f"`{item['name']}`"
+            display_name = f"<b>{item['name']}</b>"
             
         badge_type = get_type_badge(item["name"])
         
@@ -233,7 +229,7 @@ def generate_markdown():
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        print(f"✅ README Updated: Vertical Buttons & Fixed Width.")
+        print(f"✅ README Updated: Badges width fixed to {BADGE_WIDTH}px.")
     except Exception as e:
         print(f"❌ Error: {e}")
 
