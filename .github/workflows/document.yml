@@ -1,10 +1,9 @@
 name: 2. Update Documentation
 
 on:
-  workflow_dispatch: # 手动触发
+  workflow_dispatch: 
 
 env:
-  # 定义颜色和图标，让日志像仪表盘一样漂亮
   COLOR_RESET: '\033[0m'
   COLOR_CYAN: '\033[36m'
   COLOR_GREEN: '\033[32m'
@@ -19,19 +18,15 @@ jobs:
   gen_docs:
     name: 🏗️ Build & Publish
     runs-on: ubuntu-latest
-    
-    # 必须有写入权限才能提交 README
     permissions:
       contents: write
 
     steps:
-      # 1. 检出代码
       - name: 📥 Checkout Source
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1 # 轻量级拉取
+          fetch-depth: 1
 
-      # 2. 环境准备
       - name: 🐍 Setup Python 3.10
         uses: actions/setup-python@v5
         with:
@@ -73,7 +68,6 @@ jobs:
           echo -e "${COLOR_GREEN}${ICON_OK} Generation Completed in ${DURATION}s.${COLOR_RESET}"
           echo "::endgroup::"
 
-      # 4. 提交代码 (仅在有变化时)
       - name: 💾 Commit Changes
         id: auto_commit
         uses: stefanzweifel/git-auto-commit-action@v5
