@@ -2,31 +2,31 @@
   <a href='https://github.com/rksk102/singbox-rules'>
     <img src='https://sing-box.sagernet.org/assets/icon.svg' width='120' height='120' alt='Sing-box Logo'>
   </a>
-  <h1 style='margin-top: 10px;'>Sing-box Rule Sets</h1>
+  <h1 style='margin-top: 10px;'>Sing-box 规则集聚合仓库</h1>
   <p style='font-size: 1.1em; color: #666;'>
-    🚀 <strong>Automated Build</strong> &middot; 
-    🌍 <strong>Global CDN</strong> &middot; 
-    📦 <strong>Optimized Binary</strong>
+    🚀 <strong>自动构建</strong> &middot; 
+    🌍 <strong>全球加速</strong> &middot; 
+    📦 <strong>格式优化</strong>
   </p>
   <p>
-    <img src='https://img.shields.io/github/actions/workflow/status/rksk102/singbox-rules/manager.yml?style=flat-square&logo=github&label=Build' alt='Build'>
-    <img src='https://img.shields.io/github/stars/rksk102/singbox-rules?style=flat-square&logo=github&color=yellow' alt='Stars'>
+    <img src='https://img.shields.io/github/actions/workflow/status/rksk102/singbox-rules/manager.yml?style=flat-square&logo=github&label=构建状态' alt='Build'>
+    <img src='https://img.shields.io/github/stars/rksk102/singbox-rules?style=flat-square&logo=github&color=yellow&label=Stars' alt='Stars'>
   </p>
 </div>
 
-| ⚡ **Lightning Fast** | 🔄 **Always Up-to-Date** | 🛠️ **Developer Friendly** |
+| ⚡ **极致极速** | 🔄 **实时更新** | 🛠️ **兼容性强** |
 | :---: | :---: | :---: |
-| Pre-compiled `.srs` binary rules<br>Low memory & CPU usage | Auto-synced with upstream<br>Every hour updates | Standard JSON format included<br>Ready for secondary dev |
+| 预编译 `.srs` 二进制格式<br>极低内存与 CPU 占用 | 每小时自动同步上游<br>时刻保持最新规则 | 提供标准 JSON 源码格式<br>方便二次开发与审计 |
 
 ---
 
-## ⚙️ Configuration Guide
+## ⚙️ 配置指南
 
 > [!TIP]
-> **Quick Start**: Select a rule from the table below, right-click the **[ Install-GhProxy ]** button to copy the link, and paste it into your configuration.
+> **快速开始**: 从下方表格选择所需规则，右键点击 **[ Install-GhProxy ]** 按钮复制链接，填入配置文件中 `rule_set` 的 `url` 字段即可。
 
 <details>
-<summary><strong>📝 Click to expand `config.json` example (点击展开配置模版)</strong></summary>
+<summary><strong>📝 点击展开 `config.json` 参考配置</strong></summary>
 
 ```json
 {
@@ -46,9 +46,9 @@
 </details>
 
 <br>
-## 🚀 SRS Binary Rules
+## 🚀 SRS 二进制规则集 (推荐)
 
-| Rule Name | Type | Size | <div align='center'>GitHub Source</div> | <div align='center'>CDN Downloads</div> |
+| 规则名称 | 类型 | 大小 | <div align='center'>GitHub 源文件</div> | <div align='center'>CDN 加速下载</div> |
 | :--- | :---: | :---: | :---: | :---: |
 | <span style='font-size:11px;color:#95a5a6'>📂 block/domain/Loyalsoldier /</span> <b>reject</b> | ![Rule](https://img.shields.io/badge/RULE-Set-95a5a6?style=flat-square) | `1.13 MB` | <div align='center'><a href='https://github.com/rksk102/singbox-rules/blob/main/block/domain/Loyalsoldier/reject.json'><img src='https://img.shields.io/badge/View_Source-181717?style=flat-square&logo=github' width='120' alt='Source'></a></div> | <div align='center'><div style='margin-bottom: 5px;'><a href='https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/block/domain/Loyalsoldier/reject.srs'><img src='https://img.shields.io/badge/Install-GhProxy-2ecc71?style=flat-square&logo=rocket' width='120'></a></div><div style='margin-bottom: 5px;'><a href='https://raw.kgithub.com/rksk102/singbox-rules/main/block/domain/Loyalsoldier/reject.srs'><img src='https://img.shields.io/badge/Install-KGitHub-orange?style=flat-square&logo=thunder' width='120'></a></div><div><a href='https://cdn.jsdelivr.net/gh/rksk102/singbox-rules@main/block/domain/Loyalsoldier/reject.srs'><img src='https://img.shields.io/badge/Install-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white' width='120'></a></div></div> |
 | <span style='font-size:11px;color:#95a5a6'>📂 block/domain/Loyalsoldier /</span> <b>win-extra</b> | ![Rule](https://img.shields.io/badge/RULE-Set-95a5a6?style=flat-square) | `3.4 KB` | <div align='center'><a href='https://github.com/rksk102/singbox-rules/blob/main/block/domain/Loyalsoldier/win-extra.json'><img src='https://img.shields.io/badge/View_Source-181717?style=flat-square&logo=github' width='120' alt='Source'></a></div> | <div align='center'><div style='margin-bottom: 5px;'><a href='https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/block/domain/Loyalsoldier/win-extra.srs'><img src='https://img.shields.io/badge/Install-GhProxy-2ecc71?style=flat-square&logo=rocket' width='120'></a></div><div style='margin-bottom: 5px;'><a href='https://raw.kgithub.com/rksk102/singbox-rules/main/block/domain/Loyalsoldier/win-extra.srs'><img src='https://img.shields.io/badge/Install-KGitHub-orange?style=flat-square&logo=thunder' width='120'></a></div><div><a href='https://cdn.jsdelivr.net/gh/rksk102/singbox-rules@main/block/domain/Loyalsoldier/win-extra.srs'><img src='https://img.shields.io/badge/Install-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white' width='120'></a></div></div> |
@@ -63,9 +63,9 @@
 | <span style='font-size:11px;color:#95a5a6'>📂 policy/domain/MetaCubeX /</span> <b>category-ai-!cn</b> | ![Rule](https://img.shields.io/badge/RULE-Set-95a5a6?style=flat-square) | `1.1 KB` | <div align='center'><a href='https://github.com/rksk102/singbox-rules/blob/main/policy/domain/MetaCubeX/category-ai-!cn.json'><img src='https://img.shields.io/badge/View_Source-181717?style=flat-square&logo=github' width='120' alt='Source'></a></div> | <div align='center'><div style='margin-bottom: 5px;'><a href='https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/policy/domain/MetaCubeX/category-ai-!cn.srs'><img src='https://img.shields.io/badge/Install-GhProxy-2ecc71?style=flat-square&logo=rocket' width='120'></a></div><div style='margin-bottom: 5px;'><a href='https://raw.kgithub.com/rksk102/singbox-rules/main/policy/domain/MetaCubeX/category-ai-!cn.srs'><img src='https://img.shields.io/badge/Install-KGitHub-orange?style=flat-square&logo=thunder' width='120'></a></div><div><a href='https://cdn.jsdelivr.net/gh/rksk102/singbox-rules@main/policy/domain/MetaCubeX/category-ai-!cn.srs'><img src='https://img.shields.io/badge/Install-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white' width='120'></a></div></div> |
 | <span style='font-size:11px;color:#95a5a6'>📂 policy/domain/rksk102 /</span> <b>all-proxy</b> | ![Rule](https://img.shields.io/badge/RULE-Set-95a5a6?style=flat-square) | `176.2 KB` | <div align='center'><a href='https://github.com/rksk102/singbox-rules/blob/main/policy/domain/rksk102/all-proxy.json'><img src='https://img.shields.io/badge/View_Source-181717?style=flat-square&logo=github' width='120' alt='Source'></a></div> | <div align='center'><div style='margin-bottom: 5px;'><a href='https://ghproxy.net/https://raw.githubusercontent.com/rksk102/singbox-rules/main/policy/domain/rksk102/all-proxy.srs'><img src='https://img.shields.io/badge/Install-GhProxy-2ecc71?style=flat-square&logo=rocket' width='120'></a></div><div style='margin-bottom: 5px;'><a href='https://raw.kgithub.com/rksk102/singbox-rules/main/policy/domain/rksk102/all-proxy.srs'><img src='https://img.shields.io/badge/Install-KGitHub-orange?style=flat-square&logo=thunder' width='120'></a></div><div><a href='https://cdn.jsdelivr.net/gh/rksk102/singbox-rules@main/policy/domain/rksk102/all-proxy.srs'><img src='https://img.shields.io/badge/Install-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white' width='120'></a></div></div> |
 
-## 📄 JSON Source Rules
+## 📄 JSON 源码规则集
 
-| Rule Name | Type | Size | <div align='center'>GitHub Source</div> | <div align='center'>CDN Downloads</div> |
+| 规则名称 | 类型 | 大小 | <div align='center'>GitHub 源文件</div> | <div align='center'>CDN 加速下载</div> |
 | :--- | :---: | :---: | :---: | :---: |
 | <span style='font-size:11px;color:#95a5a6'>📂 block/domain/Loyalsoldier /</span> <b>reject</b> | ![Rule](https://img.shields.io/badge/RULE-Set-95a5a6?style=flat-square) | `3.78 MB` | <div align='center'><a href='https://github.com/rksk102/singbox-rules/blob/main/block/domain/Loyalsoldier/reject.json'><img src='https://img.shields.io/badge/View_Source-181717?style=flat-square&logo=github' width='120' alt='Source'></a></div> | <div align='center'><div style='margin-bottom: 5px;'><a href='https://raw.kgithub.com/rksk102/singbox-rules/main/block/domain/Loyalsoldier/reject.json'><img src='https://img.shields.io/badge/Mirror-KGitHub-orange?style=flat-square&logo=thunder' width='120'></a></div><div><a href='https://cdn.jsdelivr.net/gh/rksk102/singbox-rules@main/block/domain/Loyalsoldier/reject.json'><img src='https://img.shields.io/badge/Mirror-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white' width='120'></a></div></div> |
 | <span style='font-size:11px;color:#95a5a6'>📂 block/domain/Loyalsoldier /</span> <b>win-extra</b> | ![Rule](https://img.shields.io/badge/RULE-Set-95a5a6?style=flat-square) | `16.1 KB` | <div align='center'><a href='https://github.com/rksk102/singbox-rules/blob/main/block/domain/Loyalsoldier/win-extra.json'><img src='https://img.shields.io/badge/View_Source-181717?style=flat-square&logo=github' width='120' alt='Source'></a></div> | <div align='center'><div style='margin-bottom: 5px;'><a href='https://raw.kgithub.com/rksk102/singbox-rules/main/block/domain/Loyalsoldier/win-extra.json'><img src='https://img.shields.io/badge/Mirror-KGitHub-orange?style=flat-square&logo=thunder' width='120'></a></div><div><a href='https://cdn.jsdelivr.net/gh/rksk102/singbox-rules@main/block/domain/Loyalsoldier/win-extra.json'><img src='https://img.shields.io/badge/Mirror-jsDelivr-ff5252?style=flat-square&logo=jsdelivr&logoColor=white' width='120'></a></div></div> |
@@ -84,9 +84,9 @@
 ---
 
 <div align='center'>
-  <p><strong>📊 Statistics</strong>: SRS Files: <code>12</code> | JSON Files: <code>12</code></p>
-  <p>🕒 Last Updated: <code>2025-11-28 19:02 (Beijing Time)</code></p>
-  <p><a href='#sing-box-rule-sets'>🔼 Back to Top</a></p>
+  <p><strong>📊 数据统计</strong>: SRS 规则: <code>12</code> | JSON 规则: <code>12</code></p>
+  <p>🕒 最后更新: <code>2025-11-28 19:12 (北京时间)</code></p>
+  <p><a href='#sing-box-规则集聚合仓库'>🔼 回到顶部</a></p>
   <br>
   <sub>Built with ❤️ by <a href='https://github.com/rksk102/singbox-rules'>GitHub Actions</a></sub>
 </div>
