@@ -1,50 +1,61 @@
-name: Rule Set Manager
+name: Rule Set Build Logic
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:        # 允许手动触发
+  push:
+    paths:
+      - 'repos.json'        # 当配置文件修改时触发
+      - 'src/**'            # 当脚本修改时触发
+  schedule:
+    - cron: '0 20 * * *'    # 每天北京时间早4点运行 (UTC 20:00)
 
 jobs:
-  update_rules:
+  build_rules:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write       # 必须有写权限才能提交
 
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # --- 核心：每次运行都安装最新版 Sing-box ---
-      - name: Install Latest Sing-box
+      - name: Install Sing-box (Latest)
         run: |
-          # 获取最新版本号
-          LATEST_TAG=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r .tag_name)
-          VERSION=${LATEST_TAG#v}
-          echo "Installing Sing-box v$VERSION..."
+          LATEST_API=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest)
+          # 使用 jq 提取 tag_name，兼容性更好
+          TAG=$(echo "$LATEST_API" | jq -r .tag_name)
+          VER=${TAG#v}
           
-          # 下载并解压
-          URL="https://github.com/SagerNet/sing-box/releases/download/${LATEST_TAG}/sing-box-${VERSION}-linux-amd64.tar.gz"
+          # 构造下载链接
+          URL="https://github.com/SagerNet/sing-box/releases/download/${TAG}/sing-box-${VER}-linux-amd64.tar.gz"
+          echo "⬇️ Downloading sing-box $TAG from $URL"
+          
           wget -qO sb.tar.gz "$URL"
           tar -zxf sb.tar.gz
           
-          # 移动到 PATH
+          # 移动并赋予执行权限
           sudo mv sing-box-*/sing-box /usr/local/bin/
+          sudo chmod +x /usr/local/bin/sing-box
           
-          # 验证
+          # 检查版本
           sing-box version
 
-      # --- 核心：运行你的全能脚本 ---
-      # 这一步会读取 repos.json -> 拉取 -> 清洗 -> 编译
-      - name: Execute Main Script
-        run: python -u src/main.py
+      - name: Run Optimization Script
+        run: |
+          # 确保脚本有执行权限 (虽然是 python -u 运行，这也是好习惯)
+          # 如果你的 main.py 在 src 目录下
+          python -u src/main.py
 
-      # --- 提交结果 ---
-      - name: Commit Changes
+      - name: Commit and Push Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Auto: Sync rules & Compile with latest kernel [skip ci]"
+          commit_message: "Auto: Update rules [skip ci]"
           file_pattern: "rules-txt rules-json rules-srs"
+          push_options: '--force' # 可选，强制推送防止冲突，视需求开启
