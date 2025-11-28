@@ -13,22 +13,30 @@ jobs:
   build:
     name: 🚀 Build Rules
     runs-on: ubuntu-latest
+    # 注意：虽然使用了 PAT，但这个 permissions 最好留着防止基础权限不足
     permissions:
-      contents: write # 依然保留这个
+      contents: write
     timeout-minutes: 10
 
     steps:
+      # 1. 签出代码 (这里不需要 token 了，我们在后面手动 push 时指定)
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整历史，防止 push 时报错
 
+      # 2. 配置 Python
       - name: 🐍 Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+          # 删除了 cache: pip 以避免没有 requirements.txt 的报错
 
+      # 3. 安装依赖
       - name: 📦 Install Dependencies
         run: pip install rich
 
+      # 4. 安装 Sing-box
       - name: 🛠️ Install Sing-box
         run: |
           echo "::group::Download & Install Sing-box"
@@ -40,14 +48,29 @@ jobs:
           rm -rf sing-box-* sb.tar.gz
           echo "::endgroup::"
 
+      # 5. 运行构建脚本
       - name: 🚀 Run Builder
         run: python -u src/main.py
 
-      - name: 📤 Commit Results
-        if: success()
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Auto: Update rules [skip ci]"
-          file_pattern: "rules-txt rules-json rules-srs"
-          push_options: '--force'
-          # 注意：如果在 checkout 用了 token，这里通常不需要再指定，git配置会自动继承
+      # 6. 【关键步骤】 手动提交并推送
+      - name: 📤 Commit & Push (Manual)
+        run: |
+          # 配置 Git 用户身份
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # 添加指定文件夹
+          git add rules-txt rules-json rules-srs
+          
+          # 检查是否有变动，没变动就直接退出，不报错
+          if git diff --staged --quiet; then
+            echo "✅ No changes to commit."
+            exit 0
+          fi
+          
+          # 提交
+          git commit -m "Auto: Update rules [skip ci]"
+          
+          # ➤➤➤ 终极推送：直接在 URL 里带上 PAT 密码
+          # 这一步会强制使用你的 PAT 权限，绝对不会再报 "refusing to update workflow"
+          git push "https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main --force
