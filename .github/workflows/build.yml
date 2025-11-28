@@ -20,8 +20,6 @@ jobs:
     steps:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT_TOKEN }} # ➤➤➤ 关键修改：使用 PAT
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@v4
