@@ -11,7 +11,6 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Set, Optional, Tuple
 
-# --- 尝试导入 Rich 库 ---
 try:
     from rich.console import Console
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn
@@ -22,7 +21,6 @@ except ImportError:
     print("Error: Please install rich (pip install rich)")
     sys.exit(1)
 
-# --- 全局配置 ---
 console = Console(record=True)
 ROOT_DIR = Path.cwd()
 CONFIG_FILE = ROOT_DIR / "repos.json"
@@ -31,13 +29,10 @@ DIR_JSON = ROOT_DIR / "rules-json"
 DIR_SRS = ROOT_DIR / "rules-srs"
 MAX_WORKERS = 4
 
-# 需要强制扁平化去除的目录名
 FLATTEN_TARGETS = {"rulesets", "ruleset"}
 
-# 正则：匹配合法 IP
 REGEX_IP = re.compile(r'^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/\d+)?)|(?:.*:.*)$')
 
-# --- 统计类 ---
 class WorkflowStats:
     def __init__(self):
         self.start_time = time.time()
@@ -54,8 +49,6 @@ class WorkflowStats:
         return str(timedelta(seconds=int(time.time() - self.start_time)))
 
 stats = WorkflowStats()
-
-# --- 辅助函数 ---
 
 def write_github_summary():
     if "GITHUB_STEP_SUMMARY" not in os.environ: return
@@ -111,8 +104,6 @@ def git_sparse_clone(url: str, remote_tgt: str, temp_dir: str):
         subprocess.run(["git", "checkout"], cwd=temp_dir, **common_args)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Git Error: {e.stderr.decode().strip()}")
-
-# --- 核心逻辑 ---
 
 def init_workspace():
     console.rule("[bold blue]阶段 1: 暴力清理旧文件[/bold blue]")
