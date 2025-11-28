@@ -1,8 +1,8 @@
 import os
 from datetime import datetime, timezone, timedelta
 
-# ================= 配置区域 (Configuration) =================
-# 1. 路径自动识别 (兼容 src/ 目录或根目录运行)
+# ================= 核心配置 (Configuration) =================
+# 路径自动识别
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 except:
@@ -14,30 +14,12 @@ DIR_JSON = os.path.join(PROJECT_ROOT, "rules-json")
 DIR_SRS = os.path.join(PROJECT_ROOT, "rules-srs")
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "README.md")
 BRANCH = "main"
+REPO = os.getenv("GITHUB_REPOSITORY", "rksk102/singbox-rules") # 默认值可修改
 
+# Logo 图片 (Sing-box 官方图标)
 LOGO_URL = "https://sing-box.sagernet.org/assets/icon.svg"
 
-# ================= 2. 徽章与链接配置 =================
-# 可以在这里调整徽章的颜色 (color) 和图标 (logo)
-CDN_CONFIG = {
-    "ghproxy": {
-        "url": "https://ghproxy.net/https://raw.githubusercontent.com/{repo}/{branch}/{path}",
-        "badge": "https://img.shields.io/badge/☁_GhProxy-Install-00b894?style=flat-square&logo=rocket"
-    },
-    "kgithub": {
-        "url": "https://raw.kgithub.com/{repo}/{branch}/{path}",
-        "badge": "https://img.shields.io/badge/⚡_KGitHub-Orange?style=flat-square&logo=thunder"
-    },
-    "jsdelivr": {
-        "url": "https://cdn.jsdelivr.net/gh/{repo}@{branch}/{path}",
-        "badge": "https://img.shields.io/badge/🔴_JSDelivr-Red?style=flat-square&logo=jsdelivr"
-    },
-    "raw": {
-        "url": "https://raw.githubusercontent.com/{repo}/{branch}/{path}",
-        "badge": "https://img.shields.io/badge/🏴_GitHub-Source-2d3436?style=flat-square&logo=github"
-    }
-}
-# ==========================================================
+# ================= 样式生成函数 =================
 
 def get_beijing_time():
     utc_dt = datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -51,74 +33,104 @@ def format_size(path):
     if size < 1024 * 1024: return f"{size/1024:.1f} KB"
     return f"{size/(1024*1024):.2f} MB"
 
-def get_tag_html(filename):
-    """莫兰迪色系标签"""
+def get_type_badge(filename):
+    """
+    生成极简风格的类型徽章
+    """
     fname = filename.lower()
-    base_style = "display:inline-block; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:bold; font-family: sans-serif; vertical-align: middle; margin-left: 8px;"
-    
+    # 使用 Shields.io 静态徽章，保证视觉一致性，不会因为 CSS 被过滤而变丑
     if "ip" in fname and "domain" not in fname:
-        return f"<span style='{base_style} color:#0984e3; background:#dff9fb; border:1px solid #74b9ff;'>IP-CIDR</span>"
+        return "![IP](https://img.shields.io/badge/IP-CIDR-3498db?style=flat-square)"
     elif "domain" in fname or "site" in fname:
-        return f"<span style='{base_style} color:#6c5ce7; background:#e0d7ff; border:1px solid #a29bfe;'>DOMAIN</span>"
+        return "![Domain](https://img.shields.io/badge/DOMAIN-List-9b59b6?style=flat-square)"
     else:
-        return f"<span style='{base_style} color:#636e72; background:#f1f2f6; border:1px solid #b2bec3;'>RULE</span>"
+        return "![Rule](https://img.shields.io/badge/RULE-Set-95a5a6?style=flat-square)"
 
-def make_badge(cdn_key, repo, path):
-    """生成带间距的徽章HTML"""
-    cfg = CDN_CONFIG[cdn_key]
-    url = cfg["url"].format(repo=repo, branch=BRANCH, path=path)
-    # margin-right: 4px 用于防止按钮靠太近
-    return f"<a href='{url}' style='margin-right: 4px; display:inline-block;'><img src='{cfg['badge']}' alt='{cdn_key}'></a>"
+def generate_download_badges(repo, path, branch, is_srs=True):
+    """
+    生成下载按钮组，强制使用 &emsp; 分隔
+    """
+    # 1. 定义 URL 模板
+    url_ghproxy = f"https://ghproxy.net/https://raw.githubusercontent.com/{repo}/{branch}/{path}"
+    url_kgithub = f"https://raw.kgithub.com/{repo}/{branch}/{path}"
+    # url_jsdelivr = f"https://cdn.jsdelivr.net/gh/{repo}@{branch}/{path}"
+    url_raw = f"https://raw.githubusercontent.com/{repo}/{branch}/{path}"
 
-def generate_srs_links(repo, path):
-    """SRS 下载列：主次分层布局"""
-    # 第一行：主下载 (GhProxy)
-    main_btn = make_badge("ghproxy", repo, path)
-    
-    # 第二行：备用源 (KGitHub, JSDelivr, Raw)
-    mirrors = [
-        make_badge("kgithub", repo, path),
-        make_badge("jsdelivr", repo, path),
-        make_badge("raw", repo, path)
-    ]
-    
-    return (
-        f"{main_btn}<br>"
-        f"<div style='margin-top:4px; white-space:nowrap;'>" # 这一行防止换行并增加上方间距
-        f"{''.join(mirrors)}"
-        f"</div>"
-    )
+    # 2. 定义徽章图片 (Badge Images)
+    # 主按钮：绿色，显著
+    img_main = "https://img.shields.io/badge/🚀_Fast_Install-GhProxy-2ecc71?style=flat-square" 
+    # 备用按钮：灰色/橙色，扁平
+    img_kgh = "https://img.shields.io/badge/KGitHub-orange?style=flat-square"
+    img_raw = "https://img.shields.io/badge/Source-black?style=flat-square&logo=github"
 
-def generate_json_links(repo, path):
-    """JSON 下载列：只需要源码链接"""
-    # 对于 JSON，我们提供 GitHub Raw 和 加速查看(KGitHub)
-    btn1 = make_badge("raw", repo, path)
-    btn2 = make_badge("kgithub", repo, path)
-    return f"{btn1} {btn2}"
+    # 3. 组装 HTML (关键：使用 &nbsp; 或 &emsp; 进行强制分隔)
+    if is_srs:
+        # SRS 布局：上面大按钮，下面小按钮
+        html = (
+            f"<div align='center'>"
+            f"<a href='{url_ghproxy}'><img src='{img_main}' height='25'></a>" # 主按钮加大一点
+            f"<br>"
+            f"<div style='margin-top: 5px;'>" # 垂直间距
+            f"<a href='{url_kgithub}'><img src='{img_kgh}'></a>"
+            f"&emsp;" # <--- 强制水平间距 (约两个空格宽)
+            f"<a href='{url_raw}'><img src='{img_raw}'></a>"
+            f"</div>"
+            f"</div>"
+        )
+    else:
+        # JSON 布局：单行排列
+        html = (
+            f"<div align='center'>"
+            f"<a href='{url_raw}'><img src='{img_raw}'></a>"
+            f"&emsp;" # 强制间距
+            f"<a href='{url_kgithub}'><img src='{img_kgh}'></a>"
+            f"</div>"
+        )
+    return html
 
 def generate_markdown():
-    repo = os.getenv("GITHUB_REPOSITORY", "User/Repo")
     update_time = get_beijing_time()
     
-    badge_build = f"https://img.shields.io/github/actions/workflow/status/{repo}/manager.yml?style=flat-square&logo=github&label=Build"
-    badge_size = f"https://img.shields.io/github/repo-size/{repo}?style=flat-square&label=Size&color=orange"
+    # 顶部统计徽章
+    badge_build = f"https://img.shields.io/github/actions/workflow/status/{REPO}/manager.yml?style=flat-square&logo=github"
+    badge_last_update = f"https://img.shields.io/badge/Updated-{update_time.replace(' ', '_')}-blue?style=flat-square"
     
     lines = []
 
-    # --- Header ---
+    # ================= 1. 现代化 Header (极简风格) =================
     lines.append(f"<div align='center'>")
-    lines.append(f"<a href='https://github.com/{repo}'>")
-    lines.append(f"<img src='{LOGO_URL}' width='80' height='80' alt='Logo'>")
-    lines.append(f"</a>")
-    lines.append(f"<h2>Sing-box Rule Sets</h2>")
-    lines.append(f"<p>{badge_build} {badge_size}</p>")
-    lines.append(f"<p>Automatic Updates · Multi-CDN Support</p>")
+    lines.append(f"<img src='{LOGO_URL}' width='100' alt='Sing-box Logo'>")
+    lines.append(f"<h1>Sing-box Rule Sets</h1>")
+    lines.append(f"<p><strong>Automated Build & Sync Service</strong></p>")
+    lines.append(f"<p>{badge_build} {badge_last_update}</p>")
     lines.append(f"</div>")
+    lines.append(f"")
+    
+    # 插入折叠的配置说明 (避免占用太多视觉空间)
+    lines.append(f"<details>")
+    lines.append(f"<summary><strong>🛠️ Click to view <code>config.json</code> setup config (点击查看配置示例)</strong></summary>")
+    lines.append(f"")
+    lines.append(f"```json")
+    lines.append(f"{{")
+    lines.append(f'  "route": {{')
+    lines.append(f'    "rule_set": [')
+    lines.append(f"      {{")
+    lines.append(f'        "tag": "geosite-example",')
+    lines.append(f'        "type": "remote",')
+    lines.append(f'        "format": "binary",')
+    lines.append(f'        "url": "Paste the GhProxy Link here (粘贴下方的加速链接)",')
+    lines.append(f'        "download_detour": "proxy" ')
+    lines.append(f"      }}")
+    lines.append(f"    ]")
+    lines.append(f"  }}")
+    lines.append(f"}}")
+    lines.append(f"```")
+    lines.append(f"</details>")
     lines.append(f"")
     lines.append(f"---")
     lines.append(f"")
 
-    # --- Data Collection ---
+    # ================= 数据收集 =================
     file_data = []
     if os.path.exists(DIR_JSON):
         for root, dirs, files in os.walk(DIR_JSON):
@@ -130,94 +142,83 @@ def generate_markdown():
                 if not file.endswith(".json"): continue
                 
                 name = os.path.splitext(file)[0]
-                # 核心路径逻辑
                 p_json = os.path.join(rel_dir, file).replace("\\", "/")
                 p_srs = os.path.join(rel_dir, f"{name}.srs").replace("\\", "/")
-                
                 abs_json = os.path.join(DIR_JSON, p_json)
                 abs_srs = os.path.join(DIR_SRS, p_srs)
                 
                 file_data.append({
                     "name": name,
-                    "folder": rel_dir,
-                    "rel_json": p_json, # 相对路径用于URL生成
-                    "rel_srs": p_srs,   # 相对路径用于URL生成
-                    "abs_json": abs_json,
-                    "abs_srs": abs_srs,
+                    "folder": rel_dir, # 文件夹名，用作分类
+                    "p_json": p_json,
+                    "p_srs": p_srs,
+                    "size_json": format_size(abs_json),
+                    "size_srs": format_size(abs_srs),
                     "has_srs": os.path.exists(abs_srs)
                 })
-        # Sort by folder then name
+        # 排序：先按文件夹排，再按文件名排
         file_data.sort(key=lambda x: (x["folder"], x["name"]))
 
-    # --- SECTION 1: SRS Rules ---
-    lines.append(f"### 🚀 SRS Binary Rules")
-    lines.append(f"> <small>Recommended for Sing-box. Compiled binary format.</small>")
-    lines.append(f"")
-    lines.append(f"| Rule Set | Size | Download Mirrors (Multi-CDN) |")
-    lines.append(f"| :--- | :---: | :--- |")
-    
+    # ================= 2. SRS 列表 (优化版) =================
+    lines.append(f"## 🚀 SRS Binary Rules")
+    # 表头样式优化：居中对齐
+    lines.append(f"| Category / Name | Type | Size | <div align='center'>Fast Download & Mirrors</div> |")
+    lines.append(f"| :--- | :---: | :---: | :---: |")
+
     srs_count = 0
     for item in file_data:
         if not item["has_srs"]: continue
         
-        # Name & Tag
-        name_display = f"<code>{item['name']}</code>"
-        tag_html = get_tag_html(item['name'])
+        # 名称列：优化层级显示
         if item["folder"]:
-            display_name = f"<span style='color:#b2bec3;font-size:10px'>📂 {item['folder']} / </span>{name_display} {tag_html}"
+            # 文件夹加粗，文件名代码样式
+            display_name = f"**{item['folder']}** / `{item['name']}`"
         else:
-            display_name = f"{name_display} {tag_html}"
-            
-        # Size
-        size_display = format_size(item["abs_srs"])
+            display_name = f"`{item['name']}`"
         
-        # Badges
-        action_html = generate_srs_links(repo, item["rel_srs"])
+        # 类型徽章
+        badge_type = get_type_badge(item["name"])
+        
+        # 下载列
+        action_html = generate_download_badges(REPO, item["p_srs"], BRANCH, is_srs=True)
 
-        lines.append(f"| {display_name} | {size_display} | {action_html} |")
+        lines.append(f"| {display_name} | {badge_type} | `{item['size_srs']}` | {action_html} |")
         srs_count += 1
+    
+    lines.append(f"")
+    lines.append(f"")
 
-    lines.append(f"")
-    
-    # --- SECTION 2: JSON Rules ---
-    lines.append(f"### 📄 JSON Source Rules")
-    lines.append(f"> <small>Source code format. Useful for editing or non-binary usage.</small>")
-    lines.append(f"")
-    lines.append(f"| Rule Set | Size | Source View |")
-    lines.append(f"| :--- | :---: | :--- |")
-    
+    # ================= 3. JSON 列表 (优化版) =================
+    lines.append(f"## 📄 JSON Source Rules")
+    lines.append(f"| Category / Name | Type | Size | <div align='center'>Source Code</div> |")
+    lines.append(f"| :--- | :---: | :---: | :---: |")
+
     json_count = 0
     for item in file_data:
-        # Name & Tag (Same logic)
-        name_display = f"<code>{item['name']}</code>"
-        tag_html = get_tag_html(item['name'])
         if item["folder"]:
-            display_name = f"<span style='color:#b2bec3;font-size:10px'>📂 {item['folder']} / </span>{name_display} {tag_html}"
+            display_name = f"**{item['folder']}** / `{item['name']}`"
         else:
-            display_name = f"{name_display} {tag_html}"
+            display_name = f"`{item['name']}`"
             
-        # Size (JSON size)
-        size_display = format_size(item["abs_json"])
-        
-        # Badges (JSON links)
-        action_html = generate_json_links(repo, item["rel_json"])
+        badge_type = get_type_badge(item["name"])
+        action_html = generate_download_badges(REPO, item["p_json"], BRANCH, is_srs=False)
 
-        lines.append(f"| {display_name} | {size_display} | {action_html} |")
+        lines.append(f"| {display_name} | {badge_type} | `{item['size_json']}` | {action_html} |")
         json_count += 1
 
-    # --- Footer ---
+    # ================= Footer =================
     lines.append(f"")
     lines.append(f"---")
     lines.append(f"<div align='center'>")
-    lines.append(f"<p><sub style='color:#b2bec3'>Last updated: {update_time} (Beijing Time)</sub></p>")
+    lines.append(f"<p><sub>Powered by GitHub Actions · Generated at {update_time}</sub></p>")
     lines.append(f"</div>")
 
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        print(f"✅ README Generated: SRS[{srs_count}] / JSON[{json_count}]")
+        print(f"✅ Markdown Generated: SRS[{srs_count}] / JSON[{json_count}]")
     except Exception as e:
-        print(f"❌ Write Error: {e}")
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     generate_markdown()
