@@ -8,10 +8,6 @@
     🌍 <strong>全球加速</strong> &middot; 
     📦 <strong>格式优化</strong>
   </p>
-  <p>
-    <img src='https://img.shields.io/github/actions/workflow/status/rksk102/singbox-rules/document.yml?style=flat-square&logo=github&label=构建状态' alt='Build'>
-    <img src='https://img.shields.io/github/stars/rksk102/singbox-rules?style=flat-square&logo=github&color=yellow&label=Stars' alt='Stars'>
-  </p>
 </div>
 
 | ⚡ **极致极速** | 🔄 **实时更新** | 🛠️ **兼容性强** |
@@ -85,7 +81,7 @@
 
 <div align='center'>
   <p><strong>📊 数据统计</strong>: SRS 规则: <code>12</code> | JSON 规则: <code>12</code></p>
-  <p>🕒 最后更新: <code>2025-11-28 19:30 (北京时间)</code></p>
+  <p>🕒 最后更新: <code>2025-11-28 19:33 (北京时间)</code></p>
   <p><a href='#sing-box-规则集聚合仓库'>🔼 回到顶部</a></p>
   <br>
   <sub>Built with ❤️ by <a href='https://github.com/rksk102/singbox-rules'>GitHub Actions</a></sub>
