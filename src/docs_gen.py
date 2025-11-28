@@ -1,13 +1,38 @@
 import os
 from datetime import datetime, timezone, timedelta
 
-# ================= 配置 =================
+# ================= 配置区域 (Configuration) =================
 DIR_JSON = "./rules-json"
 DIR_SRS = "./rules-srs"
 BRANCH = "main"
 OUTPUT_FILE = "README.md"
 LOGO_URL = "https://sing-box.sagernet.org/assets/icon.svg"
-# =======================================
+
+# 定义加速镜像源 (可以按需添加)
+# {repo} 会自动替换为 "用户名/仓库名", {branch} 为分支, {path} 为文件路径
+CDN_PROVIDERS = [
+    {
+        "name": "GhProxy",
+        "url": "https://ghproxy.net/https://raw.githubusercontent.com/{repo}/{branch}/{path}",
+        "badge": "https://img.shields.io/badge/Download-GhProxy-009688?style=flat-square&logo=rocket"
+    },
+    {
+        "name": "KGitHub",
+        "url": "https://raw.kgithub.com/{repo}/{branch}/{path}",
+        "badge": "https://img.shields.io/badge/Download-KGitHub-orange?style=flat-square&logo=thunder"
+    },
+    {
+        "name": "JSDelivr",
+        "url": "https://cdn.jsdelivr.net/gh/{repo}@{branch}/{path}",
+        "badge": "https://img.shields.io/badge/Download-JSDelivr-ff5252?style=flat-square&logo=jsdelivr"
+    },
+    {
+        "name": "GitHub Raw",
+        "url": "https://raw.githubusercontent.com/{repo}/{branch}/{path}",
+        "badge": "https://img.shields.io/badge/Source-GitHub_Raw-181717?style=flat-square&logo=github"
+    }
+]
+# ==========================================================
 
 def get_beijing_time():
     utc_dt = datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -22,7 +47,6 @@ def format_size(path):
     return f"{size/(1024*1024):.2f} MB"
 
 def get_tags(filename):
-    """(保持原有逻辑) 生成精致的类型标签"""
     fname = filename.lower()
     style_base = "display:inline-block; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:600; border:1px solid"
     if "ip" in fname and "domain" not in fname:
@@ -31,153 +55,131 @@ def get_tags(filename):
         return f"<span style='{style_base} #9c27b0; color:#9c27b0; background:#f3e5f5;'>DOMAIN</span>"
     return f"<span style='{style_base} #9e9e9e; color:#757575; background:#f5f5f5;'>RULE</span>"
 
+def generate_links_html(repo, path):
+    """生成多个 CDN 的下载链接徽章"""
+    links = []
+    for cdn in CDN_PROVIDERS:
+        url = cdn["url"].format(repo=repo, branch=BRANCH, path=path)
+        # 使用 HTML a 标签包裹 shields.io 图片
+        link_html = f"<a href='{url}' title='{cdn['name']}'><img src='{cdn['badge']}' alt='{cdn['name']}'></a>"
+        links.append(link_html)
+    return "<br>".join(links)
+
 def generate_markdown():
     repo = os.getenv("GITHUB_REPOSITORY", "User/Repo")
     update_time = get_beijing_time()
     
-    # 徽章组配置
     badge_build = f"https://img.shields.io/github/actions/workflow/status/{repo}/manager.yml?style=flat-square&logo=github&label=Build"
     badge_size = f"https://img.shields.io/github/repo-size/{repo}?style=flat-square&label=Repo%20Size&color=orange"
     badge_last = f"https://img.shields.io/badge/Updated-{update_time.replace(' ', '%20')}-blue?style=flat-square&logo=time"
 
     lines = []
 
-    # ================= 1. 现代化 Hero (头部) =================
+    # --- Header ---
     lines.append(f"<div align='center'>")
-    lines.append(f"<a href='https://github.com/{repo}'>")
-    lines.append(f"<img src='{LOGO_URL}' width='100' height='100' alt='SIng-box Logo'>")
-    lines.append(f"</a>")
-    lines.append(f"")
-    lines.append(f"# Sing-box Rule Sets")
-    lines.append(f"")
-    lines.append(f"![Build Status]({badge_build}) ![Repo Size]({badge_size}) ![Update]({badge_last})")
-    lines.append(f"")
-    lines.append(f"<p style='font-size: 1.1em; color: #57606a;'>")
-    lines.append(f"🚀 <strong>全自动构建</strong> · 🌏 <strong>全球 CDN 加速</strong> · 🎯 <strong>精准分类</strong>")
-    lines.append(f"</p>")
+    lines.append(f"<a href='https://github.com/{repo}'><img src='{LOGO_URL}' width='100' height='100' alt='Logo'></a>")
+    lines.append(f"<h1>Sing-box Rule Sets</h1>")
+    lines.append(f"<p>{badge_build} {badge_size} {badge_last}</p>")
+    lines.append(f"<p>自动构建 · 全球加速 · 格式分离</p>")
     lines.append(f"</div>")
     lines.append(f"")
     
-    # ================= 2. 特性仪表盘 (Feature Grid) =================
-    # 使用 Markdown 表格布局，看起来像产品介绍页
-    lines.append(f"| 🤖 **Automated** | ⚡ **High Speed** | 📦 **Standardized** |")
+    lines.append(f"| 🚀 **SRS Binary** | 📄 **JSON Source** | ⚙️ **Auto Build** |")
     lines.append(f"| :---: | :---: | :---: |")
-    lines.append(f"| 每小时同步上游规则<br>自动编译为 SRS 二进制 | 集成 GhProxy/GitMirror<br>国内环境极速拉取 | 标准化 JSON/SRS 输出<br>完美适配 Sing-box |")
-    lines.append(f"")
-    lines.append(f"---")
-    lines.append(f"")
-
-    # ================= 3. 现代化配置引导 (Alerts) =================
-    lines.append(f"## ⚙️ 配置指南 (Setup)")
-    lines.append(f"")
-    # 使用 GitHub 原生 Alert 语法: > [!TIP] 或 > [!IMPORTANT]
-    lines.append(f"> [!TIP]")
-    lines.append(f"> 推荐使用 **SRS (二进制)** 格式，相比 JSON 格式，它能显著降低内存占用并提升加载速度。")
+    lines.append(f"| 预编译二进制格式<br>加载极快，省内存 | 标准 Source 格式<br>可读性强，方便编辑 | 每小时同步上游<br>自动生成多 CDN 链接 |")
     lines.append(f"")
     
-    lines.append(f"<details>")
-    lines.append(f"<summary><strong>📝 点击展开 `config.json` 配置示例</strong></summary>")
-    lines.append(f"")
-    lines.append(f"请在下方列表中选择需要的规则，点击 `🚀 Fast Download` 按钮复制链接，填入 `url` 字段：")
-    lines.append(f"")
-    lines.append(f"```json")
-    lines.append(f"{{")
-    lines.append(f'  "route": {{')
-    lines.append(f'    "rule_set": [')
-    lines.append(f"      {{")
-    lines.append(f'        "type": "remote",')
-    lines.append(f'        "tag": "geosite-google",')
-    lines.append(f'        "format": "binary",')
-    lines.append(f'        "url": "https://ghproxy.net/...",')
-    lines.append(f'        "download_detour": "proxy-out" // 💡 确保你有这个出站 tag')
-    lines.append(f"      }}")
-    lines.append(f"    ]")
-    lines.append(f"  }}")
-    lines.append(f"}}")
-    lines.append(f"```")
-    lines.append(f"</details>")
-    lines.append(f"")
-
-    # ================= 4. 规则列表 (保持你的列表样式) =================
-    lines.append(f"## 📥 规则下载 (Downloads)")
-    lines.append(f"")
-    # 在这里添加一个搜索提示，增加易用性
-    lines.append(f"> [!NOTE]")
-    lines.append(f"> 移动端用户可向左滑动表格查看完整下载选项。使用 `Ctrl + F` 可快速查找规则。")
-    lines.append(f"")
-    
-    lines.append(f"| 规则名称 (Name) | 类型 (Type) | 大小 (Size) | 下载通道 (Download) |")
-    lines.append(f"| :--- | :--- | :--- | :--- |")
-
-    count = 0
+    # --- Data Collection ---
+    file_data = [] # 存储所有文件信息的列表
     if os.path.exists(DIR_JSON):
-        file_list = []
         for root, dirs, files in os.walk(DIR_JSON):
             files.sort()
             rel_path = os.path.relpath(root, DIR_JSON)
             if rel_path == ".": rel_path = ""
             for file in files:
                 if not file.endswith(".json"): continue
-                file_list.append((rel_path, file))
-        
-        file_list.sort(key=lambda x: (x[0], x[1]))
+                
+                name = os.path.splitext(file)[0]
+                p_json = os.path.join(rel_path, file).replace("\\", "/") # json 相对路径
+                p_srs = os.path.join(rel_path, f"{name}.srs").replace("\\", "/") # srs 相对路径
+                
+                abs_json = os.path.join(DIR_JSON, p_json)
+                abs_srs = os.path.join(DIR_SRS, p_srs)
+                
+                file_data.append({
+                    "name": name,
+                    "folder": rel_path,
+                    "rel_json": p_json,
+                    "rel_srs": p_srs,
+                    "abs_json": abs_json,
+                    "abs_srs": abs_srs,
+                    "has_srs": os.path.exists(abs_srs)
+                })
+        # 排序
+        file_data.sort(key=lambda x: (x["folder"], x["name"]))
 
-        for rel_path, file in file_list:
-            name = os.path.splitext(file)[0]
-            
-            p_json = os.path.join(rel_path, file).replace("\\", "/")
-            p_srs = os.path.join(rel_path, f"{name}.srs").replace("\\", "/")
-            srs_abs = os.path.join(DIR_SRS, p_srs)
-            
-            # 列表样式保持不变
-            if rel_path:
-                display_name = f"<span style='color:#8395a7;font-size:11px'>📂 {rel_path} /</span><br><strong>{name}</strong>"
-            else:
-                display_name = f"<strong>{name}</strong>"
-
-            tag_html = get_tags(name)
-            size_str = format_size(srs_abs)
-            size_html = f"<code>{size_str}</code>" if os.path.exists(srs_abs) else "-"
-
-            raw_base = f"https://raw.githubusercontent.com/{repo}/{BRANCH}"
-            link_ghproxy = f"https://ghproxy.net/{raw_base}/{p_srs}"
-            link_mirror = f"https://raw.gitmirror.com/{repo}/{BRANCH}/{p_srs}"
-            link_raw = f"{raw_base}/{p_srs}"
-            link_source = f"{raw_base}/{p_json}"
-
-            if os.path.exists(srs_abs):
-                # 保持你喜欢的 Button + Sub-links 组合
-                action_html = (
-                    f"<a href='{link_ghproxy}'>"
-                    f"<img src='https://img.shields.io/badge/🚀_Fast_Download-GhProxy-009688?style=flat-square&logo=rocket' alt='btn'>"
-                    f"</a><br>"
-                    f"<span style='font-size:11px; color:gray;'>"
-                    f"<a href='{link_mirror}'>CDN Mirror</a> • "
-                    f"<a href='{link_raw}'>Raw SRS</a> • "
-                    f"<a href='{link_source}'>Source</a>"
-                    f"</span>"
-                )
-            else:
-                action_html = "⚠️ Compile Failed"
-
-            lines.append(f"| {display_name} | {tag_html} | {size_html} | {action_html} |")
-            count += 1
-
-    # ================= 5. 现代化页脚 =================
+    # --- SECTION 1: SRS 列表 ---
+    lines.append(f"## 🚀 SRS Binary Rules (Recommended)")
+    lines.append(f"> [!TIP]")
+    lines.append(f"> **SRS (Sing-box Rule Set)** 是编译后的二进制格式，推荐在 Sing-box 客户端直接使用。")
     lines.append(f"")
+    lines.append(f"| Name | Tags | Size | Download Mirrors (Multi-CDN) |")
+    lines.append(f"| :--- | :--- | :--- | :--- |")
+    
+    srs_count = 0
+    for item in file_data:
+        if not item["has_srs"]: continue
+        
+        # 名字展示
+        display_name = f"<strong>{item['name']}</strong>"
+        if item["folder"]:
+            display_name = f"<span style='color:#8395a7;font-size:11px'>{item['folder']} /</span><br>{display_name}"
+            
+        tags = get_tags(item["name"])
+        size = format_size(item["abs_srs"])
+        links = generate_links_html(repo, item["rel_srs"]) # 生成 SRS 链接
+        
+        lines.append(f"| {display_name} | {tags} | <code>{size}</code> | {links} |")
+        srs_count += 1
+
+    lines.append(f"") 
     lines.append(f"---")
     lines.append(f"")
+
+    # --- SECTION 2: JSON 列表 ---
+    lines.append(f"## 📄 JSON Source Rules")
+    lines.append(f"> [!NOTE]")
+    lines.append(f"> JSON 格式适合阅读规则内容或用于不支持 SRS 的旧版本环境。")
+    lines.append(f"")
+    lines.append(f"| Name | Tags | Size | Source Links |")
+    lines.append(f"| :--- | :--- | :--- | :--- |")
+    
+    json_count = 0
+    for item in file_data:
+        # 名字展示
+        display_name = f"<strong>{item['name']}</strong>"
+        if item["folder"]:
+            display_name = f"<span style='color:#8395a7;font-size:11px'>{item['folder']} /</span><br>{display_name}"
+            
+        tags = get_tags(item["name"])
+        size = format_size(item["abs_json"]) # 计算 JSON 文件大小
+        links = generate_links_html(repo, item["rel_json"]) # 生成 JSON 链接
+        
+        lines.append(f"| {display_name} | {tags} | <code>{size}</code> | {links} |")
+        json_count += 1
+
+    # --- Footer ---
+    lines.append(f"")
     lines.append(f"<div align='center'>")
-    lines.append(f"<p><strong>Total Rule Sets:</strong> <code>{count}</code></p>")
-    # 增加回到顶部链接
+    lines.append(f"<p><strong>Statistics:</strong> {srs_count} SRS Files | {json_count} JSON Files</p>")
     lines.append(f"<p><a href='#sing-box-rule-sets'>🔼 Back to Top</a></p>")
     lines.append(f"<br>")
-    lines.append(f"<sub>Powered by <a href='https://github.com/actions'>GitHub Actions</a> & <a href='https://sing-box.sagernet.org'>Sing-box</a></sub>")
+    lines.append(f"<sub>Generated by GitHub Actions at {update_time}</sub>")
     lines.append(f"</div>")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
-    print("✅ 现代化 README (样式增强版) 已生成")
+    print(f"✅ 生成完成: {srs_count} SRS, {json_count} JSON")
 
 if __name__ == "__main__":
     generate_markdown()
