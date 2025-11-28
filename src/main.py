@@ -23,13 +23,17 @@ except ImportError:
     sys.exit(1)
 
 # 全局配置
-console = Console(record=True) # 开启录制以备导出
+console = Console(record=True)
 ROOT_DIR = Path.cwd()
 CONFIG_FILE = ROOT_DIR / "repos.json"
 DIR_TXT = ROOT_DIR / "rules-txt"
 DIR_JSON = ROOT_DIR / "rules-json"
 DIR_SRS = ROOT_DIR / "rules-srs"
 MAX_WORKERS = 4
+
+# --- 预编译正则 (用于清洗脏数据) ---
+# 匹配可能的 IP (IPv4 CIDR 或 IPv6 包含冒号)
+REGEX_IP = re.compile(r'^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/\d+)?)|(?:.*:.*)$')
 
 # --- 统计数据类 ---
 class WorkflowStats:
@@ -40,7 +44,7 @@ class WorkflowStats:
         self.compile_success = 0
         self.compile_fail = 0
         self.total_rules = 0
-        self.details = [] # 存储编译详情 [(name, type, count), ...]
+        self.details = [] # [(name, type, count), ...]
         self.status = "✅ 成功"
 
     @property
@@ -52,7 +56,7 @@ stats = WorkflowStats()
 # --- 辅助函数 ---
 
 def write_github_summary():
-    """生成 GitHub Actions 页面可见的 Markdown 摘要"""
+    """生成 GitHub Actions 摘要"""
     if "GITHUB_STEP_SUMMARY" not in os.environ:
         return
 
@@ -70,9 +74,7 @@ def write_github_summary():
 | 文件名 | 类型 | 规则数 |
 | :--- | :--- | :---: |
 """
-    # 按规则数量倒序排列
     sorted_details = sorted(stats.details, key=lambda x: x[2], reverse=True)[:20]
-    
     for name, rtype, count in sorted_details:
         icon = "🌐" if rtype == "domain_suffix" else "📡"
         md_content += f"| {name} | {icon} `{rtype}` | {count:,} |\n"
@@ -84,7 +86,6 @@ def write_github_summary():
         f.write(md_content)
 
 def handle_error(phase, error_msg):
-    """统一错误处理"""
     stats.status = f"❌ 失败于 {phase}"
     console.print(f"\n[bold red]⛔ 致命错误 - {phase}[/bold red]")
     console.print(Panel(str(error_msg), style="red", title="错误详情"))
@@ -94,7 +95,6 @@ def handle_error(phase, error_msg):
 # --- 核心任务函数 ---
 
 def init_workspace():
-    """初始化目录"""
     console.rule("[bold blue]阶段 1: 初始化[/bold blue]")
     try:
         dirs = [DIR_TXT, DIR_JSON, DIR_SRS]
@@ -103,13 +103,11 @@ def init_workspace():
             if d.exists(): shutil.rmtree(d)
             d.mkdir(parents=True)
             created.append(d.name)
-        
         console.print(f"[green]✅ 已重置目录: {', '.join(created)}[/green]")
     except Exception as e:
         handle_error("初始化", e)
 
 def run_sync_phase():
-    """同步阶段"""
     console.rule("[bold blue]阶段 2: 同步远程源[/bold blue]")
     
     if not CONFIG_FILE.exists():
@@ -122,7 +120,6 @@ def run_sync_phase():
     except Exception as e:
         handle_error("配置解析", e)
 
-    # 绘制同步表格
     sync_table = Table(box=box.SIMPLE_HEAD)
     sync_table.add_column("仓库", style="cyan")
     sync_table.add_column("目标路径", style="dim")
@@ -130,11 +127,8 @@ def run_sync_phase():
 
     for item in repo_list:
         name = item.get('name', 'Unknown')
-        
-        # 实时显示正在处理
         with console.status(f"[bold yellow]⬇️ 正在拉取: {name}...[/bold yellow]"):
             try:
-                # 执行 Git 操作
                 url = item.get('url')
                 remote_tgt = item.get('remote_path')
                 local_sub = item.get('local_subdir', 'misc')
@@ -161,51 +155,68 @@ def run_sync_phase():
                 sync_table.add_row(name, remote_tgt, "[green]OK[/green]")
             except Exception as e:
                 sync_table.add_row(name, str(e), "[red]FAIL[/red]")
-                console.print(sync_table) # 先打印已完成的
+                console.print(sync_table)
                 handle_error("同步: " + name, e)
 
     console.print(sync_table)
-    
-    # 阶段总结 Panel
-    summary = f"""[bold]仓库总数[/bold]: {stats.sync_total}
-[bold]同步成功[/bold]: [green]{stats.sync_success}[/green]
-[bold]存储位置[/bold]: {DIR_TXT}"""
-    console.print(Panel(summary, title="📊 同步阶段总结", border_style="blue", expand=False))
+    console.print(Panel(f"[bold]仓库总数[/bold]: {stats.sync_total}\n[bold]同步成功[/bold]: [green]{stats.sync_success}[/green]", title="📊 同步阶段总结", border_style="blue", expand=False))
 
 def compile_file_worker(args):
-    """单一文件编译逻辑"""
+    """
+    单一文件编译逻辑（已增强容错能力）
+    """
     file_path, rel_path = args
-    if not file_path.name.lower().endswith(('.txt', '.list', '.yaml', '.conf', '.json', '')):
+    fname = file_path.name.lower()
+    
+    if not fname.endswith(('.txt', '.list', '.yaml', '.conf', '.json', '')):
         return None
 
-    # 读取清洗
-    rules = set()
+    # 1. 初始读取与去除非规则行
+    raw_rules = set()
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
+                # 预处理：去注释、空格、引号
                 c = line.split('#')[0].split('//')[0].strip()
                 if not c or c.startswith("payload:") or "repo" in c: continue
                 c = c.replace("'", "").replace('"', "").replace(",", "").lstrip("-").strip()
-                if c: rules.add(c)
+                if c: raw_rules.add(c)
     except:
-        return None # 忽略二进制或坏文件
+        return None
 
-    if not rules: return None
-    rules_list = list(rules)
+    if not raw_rules: return None
+    rules_list = list(raw_rules)
 
-    # 识别类型
-    fname = file_path.name.lower()
+    # 2. 识别类型 (Type Detection)
     if "ip" in fname and "domain" not in fname: 
         rtype = "ip_cidr"
     elif "domain" in fname or "site" in fname:
         rtype = "domain_suffix"
     else:
-        # 采样
+        # 采样识别
         sample = rules_list[:10]
         ip_cnt = sum(1 for x in sample if re.match(r'^\d+\.|:', x))
         rtype = "ip_cidr" if ip_cnt > len(sample)/2 else "domain_suffix"
 
-    # 生成文件
+    # 3. 关键修复：根据类型进行二次清洗 (Sanitization)
+    # 这一步是为了解决 30.172.in-addr.arpa 出现在 ip_cidr 中导致 sing-box 崩溃的问题
+    final_rules = []
+    
+    if rtype == "ip_cidr":
+        for r in rules_list:
+            # 严格检查：如果是 IP 类型，必须长得像 IP
+            # 过滤掉包含 'arpa' 或其他明显是域名的内容
+            if REGEX_IP.match(r) and "inverse" not in r and "arpa" not in r:
+                final_rules.append(r)
+    else:
+        # 域名类型比较宽松，通常不需要严格过滤
+        final_rules = rules_list
+
+    if not final_rules:
+        # 如果清洗完没剩下了，就不生成文件了，防止生成空文件报错
+        return None
+
+    # 4. 生成与编译
     out_dir_json = DIR_JSON / rel_path.parent
     out_dir_srs = DIR_SRS / rel_path.parent
     out_dir_json.mkdir(parents=True, exist_ok=True)
@@ -214,7 +225,8 @@ def compile_file_worker(args):
     json_path = out_dir_json / f"{file_path.stem}.json"
     srs_path = out_dir_srs / f"{file_path.stem}.srs"
 
-    data = {"version": 1, "rules": [{rtype: rules_list}]}
+    data = {"version": 1, "rules": [{rtype: final_rules}]}
+    
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -222,12 +234,12 @@ def compile_file_worker(args):
                          capture_output=True, text=True)
     
     if res.returncode != 0:
+        # 如果还是失败，抛出包含 stderr 的异常
         raise RuntimeError(f"{file_path.name}: {res.stderr.strip()}")
 
-    return (file_path.name, rtype, len(rules_list))
+    return (file_path.name, rtype, len(final_rules))
 
 def run_build_phase():
-    """编译阶段"""
     console.rule("[bold blue]阶段 3: 编译 (.srs)[/bold blue]")
 
     files = [(p, p.relative_to(DIR_TXT)) for p in DIR_TXT.rglob("*") if p.is_file()]
@@ -235,7 +247,6 @@ def run_build_phase():
         console.print("[yellow]⚠️ 没有文件需要编译[/yellow]")
         return
 
-    # 进度条
     with Progress(
         SpinnerColumn(),
         TextColumn("[bold blue]{task.description}"),
@@ -259,25 +270,19 @@ def run_build_phase():
                     progress.advance(task)
                 except Exception as e:
                     stats.compile_fail += 1
-                    # 立即停止
                     progress.stop()
                     handle_error("编译文件", e)
 
-    # 阶段总结
-    sum_panel = f"""[bold]编译成功[/bold]: [green]{stats.compile_success}[/green]
-[bold]规则总数[/bold]: [cyan]{stats.total_rules:,}[/cyan]
-[bold]输出目录[/bold]: {DIR_SRS}"""
-    console.print(Panel(sum_panel, title="🔨 编译阶段总结", border_style="green", expand=False))
+    msg = f"[bold]编译成功[/bold]: [green]{stats.compile_success}[/green]\n[bold]规则总数[/bold]: [cyan]{stats.total_rules:,}[/cyan]"
+    console.print(Panel(msg, title="🔨 编译阶段总结", border_style="green", expand=False))
 
 def main():
     try:
         init_workspace()
         run_sync_phase()
         run_build_phase()
-        
         console.rule("[bold green]✨ 全部完成 ✨[/bold green]")
         write_github_summary()
-        
     except KeyboardInterrupt:
         handle_error("用户中断", "操作已取消")
     except Exception as e:
