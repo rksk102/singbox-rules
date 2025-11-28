@@ -2,17 +2,11 @@
   {
     "name": "1. 运行拉取和编译",
     "filename": "build.yml",
-    "wait": true,
-    
-    "//": "你想在北京时间 06:00 更新，那就是 UTC 22:00",
-    "trigger_hours": [23] 
+    "wait": true
   },
   {
     "name": "2. 更新文档链接", 
     "filename": "document.yml", 
-    "wait": false,
-    
-    "//": "不写 trigger_hours，代表它完全跟随上一步。上一步跑了，我就跑。",
-    "trigger_hours": [] 
+    "wait": false
   }
 ]
