@@ -250,6 +250,9 @@ def compile_file_worker(args) -> Optional[Tuple[str, str, int]]:
                 final_rules.append(r)
     else:
         final_rules = rules_list
+    
+    # 对规则进行排序，防止 JSON 顺序乱跳
+    final_rules.sort()
 
     if not final_rules: return None
 
