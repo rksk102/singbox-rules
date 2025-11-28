@@ -3,219 +3,206 @@ import json
 import subprocess
 import shutil
 import tempfile
-import traceback
 import re
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
-# --- 配置文件路径 ---
-CONFIG_FILE = "repos.json"
+# --- 配置部分 ---
+ROOT_DIR = Path.cwd() # 获取当前脚本运行的根目录
+CONFIG_FILE = ROOT_DIR / "repos.json"
 
-# --- 目录结构 ---
-DIR_TXT = "./rules-txt"
-DIR_JSON = "./rules-json"
-DIR_SRS = "./rules-srs"
+# 定义输出目录
+DIR_TXT = ROOT_DIR / "rules-txt"
+DIR_JSON = ROOT_DIR / "rules-json"
+DIR_SRS = ROOT_DIR / "rules-srs"
 
-def list_directory_tree(startpath):
-    print(f"\n[DEBUG] 正在检查目录内容: {startpath}")
-    if not os.path.exists(startpath):
-        print(f"  ! 目录不存在: {startpath}")
-        return
-    count = 0
-    for root, dirs, files in os.walk(startpath):
-        level = root.replace(startpath, '').count(os.sep)
-        indent = ' ' * 4 * (level)
-        print(f"{indent}|-- {os.path.basename(root)}/")
-        subindent = ' ' * 4 * (level + 1)
-        for f in files:
-            print(f"{subindent}|-- {f}")
-            count += 1
-    print(f"[DEBUG] 目录检查结束，共有 {count} 个文件。\n")
+# 并发线程数 (根据机器性能调整，GitHub Actions 通常 2-4 核)
+MAX_WORKERS = 4
 
-def sync_remote_repos():
-    print(">>> [第一阶段] 开始同步远程规则源...")
-    if not os.path.exists(CONFIG_FILE):
-        print(f"❌ 致命错误: 找不到配置文件 {CONFIG_FILE}")
-        exit(1)
+def setup_directories():
+    """初始化目录结构"""
+    for d in [DIR_TXT, DIR_JSON, DIR_SRS]:
+        if d.exists():
+            # 注意：这里选择清理 txt 和 josn/srs，
+            # 如果你想保留历史 txt，可以注释掉下面这行 shutil.rmtree(DIR_TXT)
+            if d == DIR_TXT: 
+                shutil.rmtree(d)
+                d.mkdir(parents=True)
+            else:
+                # 编译目录建议每次清空
+                shutil.rmtree(d)
+                d.mkdir(parents=True)
+        else:
+            d.mkdir(parents=True)
+    print(f"✅ 目录初始化完成: \n  - {DIR_TXT}\n  - {DIR_JSON}\n  - {DIR_SRS}")
 
-    try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            repo_list = json.load(f)
-            print(f"✅ 成功读取 repos.json，共 {len(repo_list)} 个任务。")
-    except Exception as e:
-        print(f"❌ JSON 格式错误: {e}")
-        exit(1)
+def sync_repo_task(item):
+    """单个仓库同步任务"""
+    name = item.get('name', 'Unknown')
+    url = item.get('url')
+    branch = item.get('branch', None) # 可选分支
+    remote_tgt = item.get('remote_path')
+    local_sub = item.get('local_subdir', 'misc') # 默认存入 rules-txt/misc
 
-    if os.path.exists(DIR_TXT): shutil.rmtree(DIR_TXT)
-    os.makedirs(DIR_TXT)
+    if not url or not remote_tgt:
+        return f"❌ [{name}] 配置缺失 url 或 remote_path"
 
-    for item in repo_list:
-        name = item.get('name', 'Unknown')
-        url = item['url']
-        remote_tgt = item['remote_path']
-        local_sub = item['local_subdir']
+    print(f"⬇️ [{name}] 正在拉取...")
+    
+    # 目标本地路径
+    dest_dir = DIR_TXT / local_sub
+    dest_dir.mkdir(parents=True, exist_ok=True)
 
-        print(f"▶ 正在处理: [{name}]")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        try:
+            cmd = ["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, temp_dir]
+            if branch:
+                cmd.extend(["-b", branch])
+            
+            # 1. 稀疏拉取 (只拉取 .git 信息)
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # 2. 设置稀疏检出目录
+            subprocess.run(["git", "sparse-checkout", "set", remote_tgt], cwd=temp_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            
+            # 3. 检出文件
+            subprocess.run(["git", "checkout"], cwd=temp_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            try:
-                subprocess.run(["git", "clone", "--depth", "1", url, temp_dir], 
-                               check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                
-                full_remote_path = os.path.join(temp_dir, remote_tgt)
-                dst_path = os.path.join(DIR_TXT, local_sub)
+            # 4. 移动文件
+            full_remote_path = Path(temp_dir) / remote_tgt
+            
+            if full_remote_path.is_dir():
+                # 如果是文件夹，遍历复制
+                shutil.copytree(full_remote_path, dest_dir, dirs_exist_ok=True)
+            elif full_remote_path.is_file():
+                # 如果是文件，直接复制
+                shutil.copy2(full_remote_path, dest_dir)
+            else:
+                return f"⚠️ [{name}] 远程路径未找到文件: {remote_tgt}"
+            
+            return f"✅ [{name}] 同步成功 -> {local_sub}"
+        
+        except subprocess.CalledProcessError:
+            return f"❌ [{name}] Git 拉取失败"
+        except Exception as e:
+            return f"❌ [{name}] 未知错误: {str(e)}"
 
-                if os.path.exists(full_remote_path):
-                    if os.path.isdir(full_remote_path):
-                        shutil.copytree(full_remote_path, dst_path, dirs_exist_ok=True)
-                    else:
-                        os.makedirs(dst_path, exist_ok=True)
-                        shutil.copy2(full_remote_path, dst_path)
-                    print(f"  ✅ 同步成功")
-                else:
-                    print(f"  ❌ 远程路径不存在: {remote_tgt}")
-
-            except Exception as e:
-                print(f"  ❌ Git 失败: {e}")
-
-def parse_content(file_path):
-    """
-    读取文件，去除注释，返回有效行列表
-    """
-    lines_content = []
+def parse_and_clean_content(file_path):
+    """读取、去重、清洗"""
+    cleaned_lines = set() # 使用 set 自动去重
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        for line in lines:
-            # 去除注释和空格
-            c = line.split('#')[0].split('//')[0].strip()
-            if not c: continue
-            # 去除可能的引号
-            c = c.replace("'", "").replace('"', "").replace(",", "")
-            # payload: 格式的兼容
-            if c.startswith("payload:"): continue
-            if c.startswith("-"): c = c.lstrip("-").strip()
-            
-            if c: lines_content.append(c)
-    except UnicodeDecodeError:
-        print(f"  ! 编码错误跳过: {os.path.basename(file_path)}")
-    return lines_content
-
-def detect_rule_type(content_list, filename):
-    """
-    智能判断规则类型：
-    1. 优先看文件名 (geoip-xxx -> ip, geosite-xxx -> domain)
-    2. 其次检查内容格式 (有 / 数字 -> ip_cidr)
-    """
-    fname = filename.lower()
-    
-    # 1. 文件名强制规则
-    if "ip" in fname and "domain" not in fname:
-        return "ip_cidr"
-    if "domain" in fname or "site" in fname:
-        return "domain_suffix"
-
-    # 2. 内容采样检测 (检查前 20 行)
-    ip_cidr_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(/\d+)?$|:') # IPv4 CIDR or IPv6
-    
-    ip_count = 0
-    domain_count = 0
-    
-    sample = content_list[:20] 
-    for line in sample:
-        if ip_cidr_pattern.match(line):
-            ip_count += 1
-        else:
-            domain_count += 1
-
-    # 如果大部分像是 IP
-    if ip_count > domain_count:
-        return "ip_cidr"
-    else:
-        return "domain_suffix"
-
-def convert_and_compile():
-    print("\n>>> [第二阶段] 开始智能转换与编译...")
-    
-    # 检查 sing-box
-    try:
-        subprocess.check_output(["sing-box", "version"], stderr=subprocess.STDOUT)
+            for line in f:
+                # 移除注释
+                line = line.split('#')[0].split('//')[0].strip()
+                if not line: continue
+                
+                # 移除常见的引号和 payload 前缀
+                line = line.replace("'", "").replace('"', "").replace(",", "")
+                if line.startswith("payload:"): continue
+                if line.startswith("-"): line = line.lstrip("-").strip()
+                
+                if line:
+                    cleaned_lines.add(line)
     except:
-        print("❌ 错误: 未找到 sing-box")
+        return []
+    return list(cleaned_lines)
+
+def detect_rule_type(content_sample, filename):
+    """识别规则类型"""
+    fname = filename.lower()
+    if "ip" in fname and "domain" not in fname: return "ip_cidr"
+    if "domain" in fname or "site" in fname: return "domain_suffix"
+    
+    # 内容采样
+    ip_pattern = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(/\d+)?$|:')
+    ip_count = sum(1 for x in content_sample if ip_pattern.match(x))
+    return "ip_cidr" if ip_count > len(content_sample) / 2 else "domain_suffix"
+
+def compile_worker(file_info):
+    """单个文件编译任务 (用于多线程)"""
+    file_path, rel_path = file_info
+    
+    # 过滤非规则文件
+    if file_path.suffix not in ['.txt', '.list', '.yaml', '.conf', '.json', '']:
+        return None
+
+    # 1. 解析
+    content = parse_and_clean_content(file_path)
+    if not content: return None
+
+    # 2. 识别
+    rule_type = detect_rule_type(content[:20], file_path.name)
+    
+    # 3. 构造 JSON
+    data = {"version": 1, "rules": [{rule_type: content}]}
+    
+    base_name = file_path.stem
+    target_subdir = rel_path.parent
+    
+    # 准备输出目录
+    json_dir = DIR_JSON / target_subdir
+    srs_dir = DIR_SRS / target_subdir
+    json_dir.mkdir(parents=True, exist_ok=True)
+    srs_dir.mkdir(parents=True, exist_ok=True)
+    
+    json_out = json_dir / f"{base_name}.json"
+    srs_out = srs_dir / f"{base_name}.srs"
+    
+    # 4. 写入 JSON
+    try:
+        with open(json_out, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return f"❌ JSON 写错: {file_path.name} - {e}"
+
+    # 5. 调用 Sing-box 编译
+    try:
+        proc = subprocess.run(
+            ["sing-box", "rule-set", "compile", str(json_out), "-o", str(srs_out)],
+            capture_output=True, text=True
+        )
+        if proc.returncode != 0:
+            return f"❌ SRS 编译失败: {file_path.name} -> {proc.stderr.strip()}"
+    except Exception as e:
+        return f"❌ Sing-box 调用失败: {e}"
+
+    return f"✨ 完成: {rel_path} ({len(content)} rules) -> {rule_type}"
+
+def main():
+    if not CONFIG_FILE.exists():
+        print(f"❌ 错误: 未找到配置文件 {CONFIG_FILE}")
         exit(1)
 
-    if os.path.exists(DIR_JSON): shutil.rmtree(DIR_JSON)
-    if os.path.exists(DIR_SRS): shutil.rmtree(DIR_SRS)
-    os.makedirs(DIR_JSON)
-    os.makedirs(DIR_SRS)
-
-    success_count = 0
+    print(">>> [步骤 1] 初始化与同步...")
+    setup_directories()
     
-    for root, dirs, files in os.walk(DIR_TXT):
-        rel_path = os.path.relpath(root, DIR_TXT)
-        if rel_path == ".": rel_path = ""
-        
-        if files:
-             os.makedirs(os.path.join(DIR_JSON, rel_path), exist_ok=True)
-             os.makedirs(os.path.join(DIR_SRS, rel_path), exist_ok=True)
+    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+        repo_list = json.load(f)
 
-        for file in files:
-            # 过滤后缀
-            valid_exts = (".txt", ".list", ".yaml", ".conf", ".json", "")
-            if not file.lower().endswith(valid_exts) and "." in file:
-                continue
+    # 串行拉取（Git 并发容易锁文件，建议串行或限制低并发）
+    for item in repo_list:
+        print(sync_repo_task(item))
 
-            src_file = os.path.join(root, file)
-            base_name = os.path.splitext(file)[0]
-            
-            print(f"处理文件: {os.path.join(rel_path, file)}")
+    print("\n>>> [步骤 2] 编译规则集 (并发处理)...")
+    
+    # 收集待处理文件
+    all_files = []
+    for p in DIR_TXT.rglob("*"):
+        if p.is_file():
+            # 计算相对于 DIR_TXT 的路径，保持目录结构
+            all_files.append((p, p.relative_to(DIR_TXT)))
 
-            # 1. 解析内容
-            content = parse_content(src_file)
-            if not content:
-                print(f"  -> 内容为空，跳过")
-                continue
+    # 使用线程池并发编译
+    success_cnt = 0
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        results = executor.map(compile_worker, all_files)
+        for res in results:
+            if res:
+                print(res)
+                if "❌" not in res: success_cnt += 1
 
-            # 2. 智能识别类型
-            rule_type = detect_rule_type(content, file)
-            print(f"  -> 识别为: {rule_type} (包含 {len(content)} 条规则)")
-
-            # 3. 生成 JSON 结构
-            # sing-box 1.8+ 推荐的 headless rule 结构
-            data = {
-                "version": 1,
-                "rules": [
-                    {
-                        rule_type: content
-                    }
-                ]
-            }
-
-            dst_json = os.path.join(DIR_JSON, rel_path, f"{base_name}.json")
-            dst_srs = os.path.join(DIR_SRS, rel_path, f"{base_name}.srs")
-
-            try:
-                with open(dst_json, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
-            except Exception as e:
-                print(f"  ❌ JSON 写入失败: {e}")
-                continue
-
-            # 4. 编译 SRS
-            try:
-                res = subprocess.run(
-                    ["sing-box", "rule-set", "compile", dst_json, "-o", dst_srs],
-                    capture_output=True, text=True
-                )
-                if res.returncode != 0:
-                    print(f"  ❌ 编译失败: {res.stderr.strip()}")
-                else:
-                    success_count += 1
-            except Exception as e:
-                print(f"  ❌ 调用 sing-box 失败: {e}")
-
-    print(f"\n>>> 全部完成。成功生成 {success_count} 个规则集。")
+    print(f"\n🎉 全部处理完成! 成功生成 {success_cnt} 个 SRS 规则集。")
 
 if __name__ == "__main__":
-    sync_remote_repos()
-    convert_and_compile()
-    # 调试完可以注释掉下面这行，不打印目录树
-    # list_directory_tree(DIR_TXT)
+    main()
