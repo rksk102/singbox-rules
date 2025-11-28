@@ -31,8 +31,8 @@ DIR_JSON = ROOT_DIR / "rules-json"
 DIR_SRS = ROOT_DIR / "rules-srs"
 MAX_WORKERS = 4
 
-# --- 预编译正则 (用于清洗脏数据) ---
-# 匹配可能的 IP (IPv4 CIDR 或 IPv6 包含冒号)
+# --- 预编译正则 ---
+# 匹配合法的 IP/CIDR (防止 arpa 域名混入 ip 列表)
 REGEX_IP = re.compile(r'^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/\d+)?)|(?:.*:.*)$')
 
 # --- 统计数据类 ---
@@ -44,7 +44,7 @@ class WorkflowStats:
         self.compile_success = 0
         self.compile_fail = 0
         self.total_rules = 0
-        self.details = [] # [(name, type, count), ...]
+        self.details = [] 
         self.status = "✅ 成功"
 
     @property
@@ -53,10 +53,8 @@ class WorkflowStats:
 
 stats = WorkflowStats()
 
-# --- 辅助函数 ---
-
+# --- 辅助函数：GitHub 摘要生成 ---
 def write_github_summary():
-    """生成 GitHub Actions 摘要"""
     if "GITHUB_STEP_SUMMARY" not in os.environ:
         return
 
@@ -79,9 +77,6 @@ def write_github_summary():
         icon = "🌐" if rtype == "domain_suffix" else "📡"
         md_content += f"| {name} | {icon} `{rtype}` | {count:,} |\n"
 
-    if len(stats.details) > 20:
-        md_content += f"| ... 以及其他 {len(stats.details)-20} 个文件 | | |\n"
-
     with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
         f.write(md_content)
 
@@ -92,10 +87,10 @@ def handle_error(phase, error_msg):
     write_github_summary()
     sys.exit(1)
 
-# --- 核心任务函数 ---
+# --- 核心逻辑 ---
 
 def init_workspace():
-    console.rule("[bold blue]阶段 1: 初始化[/bold blue]")
+    console.rule("[bold blue]阶段 1: 初始化工作区[/bold blue]")
     try:
         dirs = [DIR_TXT, DIR_JSON, DIR_SRS]
         created = []
@@ -122,7 +117,7 @@ def run_sync_phase():
 
     sync_table = Table(box=box.SIMPLE_HEAD)
     sync_table.add_column("仓库", style="cyan")
-    sync_table.add_column("目标路径", style="dim")
+    sync_table.add_column("目标", style="dim")
     sync_table.add_column("状态", justify="right")
 
     for item in repo_list:
@@ -131,11 +126,14 @@ def run_sync_phase():
             try:
                 url = item.get('url')
                 remote_tgt = item.get('remote_path')
-                local_sub = item.get('local_subdir', 'misc')
+                local_sub = item.get('local_subdir', '') # 默认为空，直接放根目录
+                
+                # 目标：rules-txt/local_sub
                 dest_dir = DIR_TXT / local_sub
                 dest_dir.mkdir(parents=True, exist_ok=True)
 
                 with tempfile.TemporaryDirectory() as temp_dir:
+                    # 1. Git 操作
                     subprocess.run(["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", url, temp_dir],
                                    check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
                     subprocess.run(["git", "sparse-checkout", "set", remote_tgt],
@@ -144,26 +142,34 @@ def run_sync_phase():
                                    cwd=temp_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
                     
                     full_remote_path = Path(temp_dir) / remote_tgt
+
+                    # ➤➤➤ 智能修正逻辑：如果有 rulesets 层级，自动钻取进去
+                    # 如果 remote_tgt 指向的文件夹下面只有唯一一个叫 rulesets 的文件夹，就进去
+                    if full_remote_path.is_dir():
+                        sub_contents = list(full_remote_path.iterdir())
+                        if len(sub_contents) == 1 and sub_contents[0].is_dir() and sub_contents[0].name in ["rulesets", "ruleset"]:
+                            console.print(f"[dim]  ℹ️  检测到多余的层级 {sub_contents[0].name}，自动移除[/dim]")
+                            full_remote_path = sub_contents[0]
+                    # ◀◀◀ 智能修正结束
+
                     if full_remote_path.is_dir():
                         shutil.copytree(full_remote_path, dest_dir, dirs_exist_ok=True)
                     elif full_remote_path.is_file():
                         shutil.copy2(full_remote_path, dest_dir)
                     else:
-                        raise FileNotFoundError("远程文件未找到")
+                        raise FileNotFoundError(f"远程路径未找到: {remote_tgt}")
                 
                 stats.sync_success += 1
                 sync_table.add_row(name, remote_tgt, "[green]OK[/green]")
             except Exception as e:
                 sync_table.add_row(name, str(e), "[red]FAIL[/red]")
-                console.print(sync_table)
-                handle_error("同步: " + name, e)
+                handle_error(f"同步 [{name}]", e)
 
     console.print(sync_table)
-    console.print(Panel(f"[bold]仓库总数[/bold]: {stats.sync_total}\n[bold]同步成功[/bold]: [green]{stats.sync_success}[/green]", title="📊 同步阶段总结", border_style="blue", expand=False))
 
 def compile_file_worker(args):
     """
-    单一文件编译逻辑（已增强容错能力）
+    编译单个文件，并处理路径清洗
     """
     file_path, rel_path = args
     fname = file_path.name.lower()
@@ -171,59 +177,65 @@ def compile_file_worker(args):
     if not fname.endswith(('.txt', '.list', '.yaml', '.conf', '.json', '')):
         return None
 
-    # 1. 初始读取与去除非规则行
+    # 1. 读取与清洗 (去噪)
     raw_rules = set()
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
-                # 预处理：去注释、空格、引号
                 c = line.split('#')[0].split('//')[0].strip()
                 if not c or c.startswith("payload:") or "repo" in c: continue
                 c = c.replace("'", "").replace('"', "").replace(",", "").lstrip("-").strip()
                 if c: raw_rules.add(c)
     except:
         return None
-
+    
     if not raw_rules: return None
     rules_list = list(raw_rules)
 
-    # 2. 识别类型 (Type Detection)
+    # 2. 智能识别类型
     if "ip" in fname and "domain" not in fname: 
         rtype = "ip_cidr"
     elif "domain" in fname or "site" in fname:
         rtype = "domain_suffix"
     else:
-        # 采样识别
         sample = rules_list[:10]
         ip_cnt = sum(1 for x in sample if re.match(r'^\d+\.|:', x))
         rtype = "ip_cidr" if ip_cnt > len(sample)/2 else "domain_suffix"
 
-    # 3. 关键修复：根据类型进行二次清洗 (Sanitization)
-    # 这一步是为了解决 30.172.in-addr.arpa 出现在 ip_cidr 中导致 sing-box 崩溃的问题
+    # 3. 严格数据清洗 (避免 30.172.in-addr.arpa 导致的报错)
     final_rules = []
-    
     if rtype == "ip_cidr":
         for r in rules_list:
-            # 严格检查：如果是 IP 类型，必须长得像 IP
-            # 过滤掉包含 'arpa' 或其他明显是域名的内容
+            # 只有通过正则检查 且 不包含 arpa/inverse 关键字的才算是 IP
             if REGEX_IP.match(r) and "inverse" not in r and "arpa" not in r:
                 final_rules.append(r)
     else:
-        # 域名类型比较宽松，通常不需要严格过滤
         final_rules = rules_list
 
-    if not final_rules:
-        # 如果清洗完没剩下了，就不生成文件了，防止生成空文件报错
-        return None
+    if not final_rules: return None
 
-    # 4. 生成与编译
-    out_dir_json = DIR_JSON / rel_path.parent
-    out_dir_srs = DIR_SRS / rel_path.parent
+    # ➤➤➤ 关键修改：路径扁平化处理
+    # 如果相对路径是 rulesets/拦截/ip/text.txt
+    # 我们要把它改成 拦截/ip/text.txt
+    
+    path_parts = rel_path.parts
+    # 如果路径的第一层是 rulesets，去掉它
+    if len(path_parts) > 1 and path_parts[0] in ["rulesets", "ruleset"]:
+        # 重构 path，从第二个元素开始
+        clean_rel_path = Path(*path_parts[1:]) 
+    else:
+        clean_rel_path = rel_path
+
+    # 基于清洗后的路径生成 JSON/SRS
+    out_dir_json = DIR_JSON / clean_rel_path.parent
+    out_dir_srs = DIR_SRS / clean_rel_path.parent
+    
     out_dir_json.mkdir(parents=True, exist_ok=True)
     out_dir_srs.mkdir(parents=True, exist_ok=True)
 
     json_path = out_dir_json / f"{file_path.stem}.json"
     srs_path = out_dir_srs / f"{file_path.stem}.srs"
+    # ◀◀◀ 路径处理结束
 
     data = {"version": 1, "rules": [{rtype: final_rules}]}
     
@@ -234,7 +246,6 @@ def compile_file_worker(args):
                          capture_output=True, text=True)
     
     if res.returncode != 0:
-        # 如果还是失败，抛出包含 stderr 的异常
         raise RuntimeError(f"{file_path.name}: {res.stderr.strip()}")
 
     return (file_path.name, rtype, len(final_rules))
@@ -249,13 +260,14 @@ def run_build_phase():
 
     with Progress(
         SpinnerColumn(),
-        TextColumn("[bold blue]{task.description}"),
-        BarColumn(bar_width=None),
+        # 显示动态正在编译的文件名
+        TextColumn("[bold blue]{task.description}"), 
+        BarColumn(),
         TaskProgressColumn(),
         TimeElapsedColumn(),
         console=console
     ) as progress:
-        task = progress.add_task("[cyan]编译进度...", total=len(files))
+        task = progress.add_task("[cyan]正在编译...", total=len(files))
         
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(compile_file_worker, f): f for f in files}
@@ -267,13 +279,15 @@ def run_build_phase():
                         stats.compile_success += 1
                         stats.total_rules += res[2]
                         stats.details.append(res)
+                        # 动态更新进度条文字
+                        progress.update(task, description=f"[cyan]编译: {res[0]}")
                     progress.advance(task)
                 except Exception as e:
                     stats.compile_fail += 1
                     progress.stop()
                     handle_error("编译文件", e)
 
-    msg = f"[bold]编译成功[/bold]: [green]{stats.compile_success}[/green]\n[bold]规则总数[/bold]: [cyan]{stats.total_rules:,}[/cyan]"
+    msg = f"[bold]编译成功[/bold]: [green]{stats.compile_success}[/green]\n[bold]规则总数[/bold]: [cyan]{stats.total_rules:,}[/cyan]\n[bold]输出目录[/bold]: {DIR_SRS}"
     console.print(Panel(msg, title="🔨 编译阶段总结", border_style="green", expand=False))
 
 def main():
@@ -281,7 +295,7 @@ def main():
         init_workspace()
         run_sync_phase()
         run_build_phase()
-        console.rule("[bold green]✨ 全部完成 ✨[/bold green]")
+        console.rule("[bold green]✨ 构建任务全部完成 ✨[/bold green]")
         write_github_summary()
     except KeyboardInterrupt:
         handle_error("用户中断", "操作已取消")
