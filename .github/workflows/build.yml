@@ -1,61 +1,55 @@
-name: Rule Set Build Logic
+name: 1. Rule Set Build (Pro)
 
 on:
-  workflow_dispatch:        # 允许手动触发
+  workflow_dispatch:
+  schedule:
+    - cron: '0 20 * * *'  # 每天北京时间早4点
   push:
     paths:
-      - 'repos.json'        # 当配置文件修改时触发
-      - 'src/**'            # 当脚本修改时触发
-  schedule:
-    - cron: '0 20 * * *'    # 每天北京时间早4点运行 (UTC 20:00)
+      - 'repos.json'
+      - 'src/**'
 
 jobs:
-  build_rules:
+  build:
+    name: 🚀 Build Rules
     runs-on: ubuntu-latest
     permissions:
-      contents: write       # 必须有写权限才能提交
+      contents: write
 
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install Sing-box (Latest)
+      - name: Install Dependencies
+        run: pip install rich
+
+      - name: Install Sing-box
         run: |
-          LATEST_API=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest)
-          # 使用 jq 提取 tag_name，兼容性更好
-          TAG=$(echo "$LATEST_API" | jq -r .tag_name)
-          VER=${TAG#v}
+          echo "::group::Download & Install Sing-box"
+          # 自动获取最新 Linux AMD64 版本
+          LATEST_URL=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r '.assets[] | select(.name | contains("linux-amd64.tar.gz")) | .browser_download_url')
+          echo "🔗 Downloading: $LATEST_URL"
           
-          # 构造下载链接
-          URL="https://github.com/SagerNet/sing-box/releases/download/${TAG}/sing-box-${VER}-linux-amd64.tar.gz"
-          echo "⬇️ Downloading sing-box $TAG from $URL"
-          
-          wget -qO sb.tar.gz "$URL"
+          wget -qO sb.tar.gz "$LATEST_URL"
           tar -zxf sb.tar.gz
-          
-          # 移动并赋予执行权限
           sudo mv sing-box-*/sing-box /usr/local/bin/
-          sudo chmod +x /usr/local/bin/sing-box
+          rm -rf sing-box-* sb.tar.gz
           
-          # 检查版本
           sing-box version
+          echo "::endgroup::"
 
-      - name: Run Optimization Script
-        run: |
-          # 确保脚本有执行权限 (虽然是 python -u 运行，这也是好习惯)
-          # 如果你的 main.py 在 src 目录下
-          python -u src/main.py
+      - name: Run Builder
+        run: python -u src/main.py
 
-      - name: Commit and Push Changes
+      - name: Commit Results
+        if: success() # 只有构建成功才提交
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Auto: Update rules [skip ci]"
           file_pattern: "rules-txt rules-json rules-srs"
-          push_options: '--force' # 可选，强制推送防止冲突，视需求开启
+          push_options: '--force'
