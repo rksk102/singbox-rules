@@ -18,7 +18,6 @@ def check_time_trigger(trigger_hours):
         return None # Follow mode
     
     current_hour = get_current_utc_hour()
-    # 如果当前小时在列表中，返回 True
     if current_hour in trigger_hours:
         return True
     return False
@@ -43,10 +42,9 @@ def run_orchestration():
 
     current_hour = get_current_utc_hour()
     print(f">>> 指挥官巡逻中... (当前 UTC 时间: {current_hour}:00)")
-    
-    # 链式状态标记：如果头部任务被触发，这个标记变 True，后续跟随任务就会执行
+
     chain_active = False 
-    # 强制执行标记：如果是手动点击(workflow_dispatch)触发的，忽略时间限制
+
     is_manual_run = os.getenv("GITHUB_EVENT_NAME") == "workflow_dispatch"
 
     if is_manual_run:
@@ -65,20 +63,15 @@ def run_orchestration():
         time_check = check_time_trigger(trigger_hours)
 
         if time_check is True:
-            # 时间到了！激活链条
             print(f"⏰ 时间匹配 (UTC {current_hour}) -> 激活任务链: {name}")
             chain_active = True
         elif time_check is False:
-            # 时间没到，且它是个定时任务 -> 只有手动模式才能救它，否则切断链条
             if not is_manual_run:
                 print(f"zzz 休眠中: {name} (计划运行: UTC {trigger_hours}, 当前: {current_hour})")
-                chain_active = False # 关键：断开链条，后续的跟随任务也不会跑
-        
-        # else: time_check is None -> 说明它是跟随任务，状态取决于 chain_active
-
+                chain_active = False
         # 2. 决定是否运行
         if not chain_active:
-            continue # 跳过
+            continue
 
         # 3. 执行任务
         print(f"\n▶ [启动] {name} ({filename})...")
