@@ -81,7 +81,7 @@
 
 <div align='center'>
   <p><strong>📊 数据统计</strong>: SRS 规则: <code>12</code> | JSON 规则: <code>12</code></p>
-  <p>🕒 最后更新: <code>2025-11-28 20:15 (北京时间)</code></p>
+  <p>🕒 最后更新: <code>2025-11-28 20:25 (北京时间)</code></p>
   <p><a href='#sing-box-规则集聚合仓库'>🔼 回到顶部</a></p>
   <br>
   <sub>Built with ❤️ by <a href='https://github.com/rksk102/singbox-rules'>GitHub Actions</a></sub>
