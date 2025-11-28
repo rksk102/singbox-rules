@@ -31,19 +31,35 @@ def format_size(path):
     if size < 1024 * 1024: return f"{size/1024:.1f} KB"
     return f"{size/(1024*1024):.2f} MB"
 
-# ================= 列表徽章生成逻辑 (完全保持不变) =================
+# ================= 逻辑修复区域 =================
 
-def get_type_badge(filename):
+def get_type_badge(filename, folder=""):
+    """
+    修复后的类型判定逻辑：
+    1. 同时检查文件名和文件夹名
+    2. 增加对 'cidr' 关键字的识别
+    """
     fname = filename.lower()
-    if "ip" in fname and "domain" not in fname:
-        # 蓝色 IP
+    fpath = folder.lower()
+    
+    # 判定 IP 类 (蓝色)
+    # 逻辑：
+    # 1. 文件夹路径里有 "ip" (比如 ipcidr 文件夹)
+    # 2. 或者文件名里有 "ip"
+    # 3. 或者文件名里有 "cidr" (解决 lancidr 识别问题)
+    # 4. 且文件名不包含 "domain" (防止混淆)
+    if ("ip" in fpath or "ip" in fname or "cidr" in fname) and "domain" not in fname:
         return "![IP](https://img.shields.io/badge/IP-CIDR-3498db?style=flat-square)"
+    
+    # 判定 域名 类 (紫色)
     elif "domain" in fname or "site" in fname:
-        # 紫色 Domain
         return "![Domain](https://img.shields.io/badge/DOMAIN-List-9b59b6?style=flat-square)"
+    
+    # 默认 规则 类 (灰色)
     else:
-        # 灰色 Rule
         return "![Rule](https://img.shields.io/badge/RULE-Set-95a5a6?style=flat-square)"
+
+# ================= 列表徽章生成逻辑 (保持不变) =================
 
 def generate_source_badge(repo, path):
     url = f"https://github.com/{repo}/blob/{BRANCH}/{path}"
@@ -195,7 +211,10 @@ def generate_markdown():
             display_name = f"<span style='font-size:11px;color:#95a5a6'>📂 {item['folder']} /</span> <b>{item['name']}</b>"
         else:
             display_name = f"<b>{item['name']}</b>"
-        badge_type = get_type_badge(item["name"])
+        
+        # 🟢 修复点：传入 folder 参数进行判断
+        badge_type = get_type_badge(item["name"], item["folder"])
+        
         size = f"`{item['size_srs']}`"
         source_col = generate_source_badge(REPO, item["p_json"])
         cdn_col = generate_cdn_badges_vertical(REPO, item["p_srs"])
@@ -216,7 +235,10 @@ def generate_markdown():
             display_name = f"<span style='font-size:11px;color:#95a5a6'>📂 {item['folder']} /</span> <b>{item['name']}</b>"
         else:
             display_name = f"<b>{item['name']}</b>"
-        badge_type = get_type_badge(item["name"])
+        
+        # 🟢 修复点：传入 folder 参数
+        badge_type = get_type_badge(item["name"], item["folder"])
+        
         source_col = generate_source_badge(REPO, item["p_json"])
         cdn_col = generate_json_badges_vertical(REPO, item["p_json"])
         lines.append(f"| {display_name} | {badge_type} | `{item['size_json']}` | {source_col} | {cdn_col} |")
@@ -238,7 +260,7 @@ def generate_markdown():
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        print(f"✅ README 更新成功: 布局美化 + 全中文描述")
+        print(f"✅ README 更新成功: 修复了 IP 分类逻辑 (lancidr 现在应显示为 IP-CIDR)")
     except Exception as e:
         print(f"❌ Error: {e}")
 
