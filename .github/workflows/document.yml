@@ -1,7 +1,7 @@
 name: Update Documentation
 
 on:
-  workflow_dispatch: # 被指挥官调用
+  workflow_dispatch:
 
 jobs:
   gen_docs:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+        
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -20,13 +20,12 @@ jobs:
 
       - name: Generate README
         env:
-          # 传入仓库名用于生成链接和徽章
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python src/docs_gen.py
+      
+        run: python docs_gen.py 
 
       - name: Commit README
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Docs: Auto update README rule list [skip ci]"
-          # ⚠️ 关键：必须指定 README.md
+          commit_message: "Docs: Optimize download table with multi-CDN [skip ci]"
           file_pattern: "README.md"
